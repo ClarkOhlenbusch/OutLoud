@@ -48,12 +48,16 @@ final class ShieldActionExtension: ShieldActionDelegate {
 #else
             notifyAndClose(completionHandler: completionHandler)
 #endif
-        case .secondaryButtonPressed,
-             .firstSecondarySubmenuItemPressed,
-             .secondSecondarySubmenuItemPressed,
-             .thirdSecondarySubmenuItemPressed:
+        case .secondaryButtonPressed:
             OutLoudLog.challenge.info("Shield pause declined")
             completionHandler(.close)
+#if compiler(>=6.3)
+        case .firstSecondarySubmenuItemPressed,
+             .secondSecondarySubmenuItemPressed,
+             .thirdSecondarySubmenuItemPressed:
+            OutLoudLog.challenge.info("Shield submenu pause declined")
+            completionHandler(.close)
+#endif
         @unknown default:
             OutLoudLog.challenge.notice("Received unknown shield action")
             completionHandler(.close)
