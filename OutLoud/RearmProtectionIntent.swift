@@ -7,8 +7,10 @@ struct RearmProtectionIntent: AppIntent {
         "Reapplies OutLoud protection after you leave a protected app."
     )
 
+#if compiler(>=6.3)
     @available(iOS 26.0, *)
     static var supportedModes: IntentModes { .background }
+#endif
 
     func perform() async throws -> some IntentResult {
         OutLoudLog.shortcuts.info("Re-arm shortcut invoked")
