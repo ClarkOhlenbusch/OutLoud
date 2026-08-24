@@ -8,6 +8,7 @@ struct ChallengeView: View {
     @State private var started = false
     @State private var returnDestination: ReturnDestination?
     @State private var isReturning = false
+    @State private var returnTask: Task<Void, Never>?
 
     private let accent = Color(red: 0.96, green: 0.76, blue: 0.25)
 
@@ -68,26 +69,21 @@ struct ChallengeView: View {
             }
             .padding(24)
 
-            if !completed {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button {
-                            speech.stop()
-                            model.cancelChallenge()
-                        } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 15, weight: .bold))
-                                .foregroundStyle(.white.opacity(0.55))
-                                .frame(width: 44, height: 44)
-                                .background(.white.opacity(0.06), in: Circle())
-                        }
-                        .accessibilityLabel("Cancel pause")
-                    }
+            VStack {
+                HStack {
                     Spacer()
+                    Button(action: closeChallenge) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .frame(width: 44, height: 44)
+                            .background(.white.opacity(0.06), in: Circle())
+                    }
+                    .accessibilityLabel(completed ? "Close" : "Cancel pause")
                 }
-                .padding(20)
+                Spacer()
             }
+            .padding(20)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if completed {
@@ -117,7 +113,10 @@ struct ChallengeView: View {
             started = true
             startListening()
         }
-        .onDisappear { speech.stop() }
+        .onDisappear {
+            speech.stop()
+            returnTask?.cancel()
+        }
     }
 
     private func startListening() {
@@ -131,7 +130,7 @@ struct ChallengeView: View {
 
     private var challengePrompt: String {
         if model.acceptsSimilarAcknowledgements {
-            return "Acknowledge the choice in your own words"
+            return "Acknowledge this is a bad choice"
         }
         if model.phrases.count == 1 {
             return "“\(model.phrases[0])”"
@@ -214,11 +213,24 @@ struct ChallengeView: View {
 
         guard !isPractice, let destination else { return }
         isReturning = true
-        Task {
+        returnTask = Task {
             // Give Managed Settings a brief moment to remove the originating
             // app's shield before asking iOS to open it again.
             try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
             await openReturnDestination(destination)
+        }
+    }
+
+    private func closeChallenge() {
+        speech.stop()
+        returnTask?.cancel()
+        isReturning = false
+
+        if completed {
+            model.dismissChallenge()
+        } else {
+            model.cancelChallenge()
         }
     }
 

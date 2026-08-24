@@ -129,7 +129,7 @@ struct HomeView: View {
 
             SettingsRow(
                 icon: "quote.bubble.fill",
-                title: "Phrases",
+                title: "Response",
                 value: model.phraseSummary
             ) {
                 showingPhraseEditor = true
@@ -400,34 +400,27 @@ struct OnboardingView: View {
     private var phrasePage: some View {
         OnboardingPage(
             icon: "quote.bubble.fill",
-            title: "Choose your phrases",
-            message: "Add one phrase per line. You can say any one of them."
+            title: "What will you say?",
+            message: model.acceptsSimilarAcknowledgements
+                ? "Acknowledge it’s a bad choice."
+                : "Say one of your phrases."
         ) {
             VStack(spacing: 14) {
-                TextEditor(text: $model.phrase)
-                    .focused($phraseIsFocused)
-                    .font(.title3.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .scrollContentBackground(.hidden)
-                    .frame(minHeight: 120, maxHeight: 190)
-                    .padding(14)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                AcknowledgementModePicker(selection: acknowledgementMode)
 
-                Toggle(
-                    "Accept similar acknowledgments",
-                    isOn: Binding(
-                        get: { model.acceptsSimilarAcknowledgements },
-                        set: { model.setAcceptsSimilarAcknowledgements($0) }
-                    )
-                )
-                .font(.subheadline.weight(.semibold))
-                .tint(outLoudAccent)
-
-                Text("Understands phrases like “I know this is a poor decision” on device, with no paid AI service.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+                if !model.acceptsSimilarAcknowledgements {
+                    TextEditor(text: $model.phrase)
+                        .focused($phraseIsFocused)
+                        .font(.title3.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 120, maxHeight: 190)
+                        .padding(14)
+                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: model.acceptsSimilarAcknowledgements)
         } action: {
             primaryButton("Practice") {
                 phraseIsFocused = false
@@ -435,6 +428,16 @@ struct OnboardingView: View {
                 model.beginPractice()
             }
         }
+    }
+
+    private var acknowledgementMode: Binding<Bool> {
+        Binding(
+            get: { model.acceptsSimilarAcknowledgements },
+            set: {
+                phraseIsFocused = !$0
+                model.setAcceptsSimilarAcknowledgements($0)
+            }
+        )
     }
 
     private var everyVisitPage: some View {
@@ -627,12 +630,6 @@ private struct PhraseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var phraseIsFocused: Bool
 
-    private let suggestions = [
-        "I am choosing to spend my time here",
-        "This can wait",
-        "I am making a bad choice"
-    ]
-
     var body: some View {
         NavigationStack {
             ZStack {
@@ -640,61 +637,31 @@ private struct PhraseEditorView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text("What can you say before continuing?")
+                        Text(model.acceptsSimilarAcknowledgements
+                            ? "Acknowledge it’s a bad choice."
+                            : "Say one of your phrases.")
                             .font(.title2.bold())
 
-                        Text("Add one phrase per line. Saying any one will continue.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                        AcknowledgementModePicker(selection: acknowledgementMode)
 
-                        TextEditor(text: $model.phrase)
-                            .focused($phraseIsFocused)
-                            .font(.title3.weight(.semibold))
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 130, maxHeight: 220)
-                            .padding(16)
-                            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-
-                        Toggle(
-                            "Accept similar acknowledgments",
-                            isOn: Binding(
-                                get: { model.acceptsSimilarAcknowledgements },
-                                set: { model.setAcceptsSimilarAcknowledgements($0) }
-                            )
-                        )
-                        .tint(outLoudAccent)
-
-                        Text("Uses on-device language understanding. No paid AI service or account is required.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        VStack(alignment: .leading, spacing: 10) {
-                            ForEach(suggestions, id: \.self) { suggestion in
-                                Button {
-                                    toggleSuggestion(suggestion)
-                                } label: {
-                                    HStack {
-                                        Text(suggestion)
-                                            .multilineTextAlignment(.leading)
-                                        Spacer()
-                                        if model.phrases.contains(suggestion) {
-                                            Image(systemName: "checkmark")
-                                                .foregroundStyle(outLoudAccent)
-                                        }
-                                    }
-                                    .padding(.vertical, 6)
-                                }
-                                .buttonStyle(.plain)
-                            }
+                        if !model.acceptsSimilarAcknowledgements {
+                            TextEditor(text: $model.phrase)
+                                .focused($phraseIsFocused)
+                                .font(.title3.weight(.semibold))
+                                .scrollContentBackground(.hidden)
+                                .frame(minHeight: 130, maxHeight: 220)
+                                .padding(16)
+                                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
-                        .foregroundStyle(.white.opacity(0.76))
 
                         Spacer()
                     }
                     .padding(20)
+                    .animation(.easeInOut(duration: 0.2), value: model.acceptsSimilarAcknowledgements)
                 }
             }
-            .navigationTitle("Your phrases")
+            .navigationTitle("Response")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
@@ -707,17 +674,90 @@ private struct PhraseEditorView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onAppear { phraseIsFocused = true }
     }
 
-    private func toggleSuggestion(_ suggestion: String) {
-        var phrases = model.phrases
-        if let index = phrases.firstIndex(of: suggestion) {
-            phrases.remove(at: index)
-        } else {
-            phrases.append(suggestion)
+    private var acknowledgementMode: Binding<Bool> {
+        Binding(
+            get: { model.acceptsSimilarAcknowledgements },
+            set: {
+                phraseIsFocused = !$0
+                model.setAcceptsSimilarAcknowledgements($0)
+            }
+        )
+    }
+}
+
+private struct AcknowledgementModePicker: View {
+    @Binding var selection: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            modeCard(
+                value: true,
+                title: "Own words",
+                icon: "waveform"
+            )
+
+            modeCard(
+                value: false,
+                title: "Specific phrases",
+                icon: "quote.bubble.fill"
+            )
         }
-        model.phrase = phrases.joined(separator: "\n")
+        .accessibilityElement(children: .contain)
+    }
+
+    private func modeCard(value: Bool, title: String, icon: String) -> some View {
+        let isSelected = selection == value
+
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                selection = value
+            }
+        } label: {
+            VStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(isSelected ? .black : .white.opacity(0.66))
+                    .frame(width: 46, height: 46)
+                    .background(
+                        isSelected ? AnyShapeStyle(outLoudAccent) : AnyShapeStyle(.white.opacity(0.07)),
+                        in: Circle()
+                    )
+
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(isSelected ? .white : .white.opacity(0.64))
+                    .frame(maxWidth: .infinity)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 17)
+            .frame(maxWidth: .infinity, minHeight: 124)
+            .background(
+                isSelected ? outLoudAccent.opacity(0.1) : .white.opacity(0.045),
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        isSelected ? outLoudAccent.opacity(0.7) : .white.opacity(0.07),
+                        lineWidth: isSelected ? 1.5 : 1
+                    )
+            }
+            .overlay(alignment: .topTrailing) {
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(outLoudAccent)
+                        .padding(10)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

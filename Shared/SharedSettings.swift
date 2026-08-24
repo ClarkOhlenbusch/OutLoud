@@ -59,7 +59,7 @@ enum SharedSettings {
     }
 
     static var phrase: String {
-        get { defaults.string(forKey: Key.phrase) ?? "I am choosing to spend my time here" }
+        get { defaults.string(forKey: Key.phrase) ?? "I am making a bad choice" }
         set { defaults.set(newValue, forKey: Key.phrase) }
     }
 
@@ -73,7 +73,7 @@ enum SharedSettings {
             return [phrase]
         }
         set {
-            let saved = newValue.isEmpty ? ["I am choosing to spend my time here"] : newValue
+            let saved = newValue.isEmpty ? ["I am making a bad choice"] : newValue
             defaults.set(try? JSONEncoder().encode(saved), forKey: Key.phrases)
             // Keep the original key current for installs upgrading from the
             // single-phrase version and for older extensions during an update.
@@ -82,7 +82,7 @@ enum SharedSettings {
     }
 
     static var acceptsSimilarAcknowledgements: Bool {
-        get { defaults.bool(forKey: Key.acceptsSimilarAcknowledgements) }
+        get { defaults.object(forKey: Key.acceptsSimilarAcknowledgements) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.acceptsSimilarAcknowledgements) }
     }
 

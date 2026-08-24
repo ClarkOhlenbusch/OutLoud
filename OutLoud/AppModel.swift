@@ -62,9 +62,9 @@ final class AppModel: ObservableObject {
     }
 
     var phraseSummary: String {
+        if acceptsSimilarAcknowledgements { return "Own words" }
         let savedPhrases = phrases
-        if savedPhrases.count == 1 { return savedPhrases[0] }
-        return "\(savedPhrases.count) phrases"
+        return savedPhrases.count == 1 ? "1 phrase" : "\(savedPhrases.count) phrases"
     }
 
     var selectedItemCount: Int {
@@ -122,7 +122,7 @@ final class AppModel: ObservableObject {
 
     func savePhrase() {
         let savedPhrases = phrases.isEmpty
-            ? ["I am choosing to spend my time here"]
+            ? ["I am making a bad choice"]
             : phrases
         phrase = savedPhrases.joined(separator: "\n")
         SharedSettings.phrases = savedPhrases
