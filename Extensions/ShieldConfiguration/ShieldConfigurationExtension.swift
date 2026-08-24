@@ -29,20 +29,24 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     private func makeConfiguration() -> ShieldConfiguration {
         OutLoudLog.screenTime.debug("Providing shield configuration")
         let gold = UIColor(red: 0.96, green: 0.76, blue: 0.25, alpha: 1)
+        let outLoudBackground = UIColor(red: 0.025, green: 0.022, blue: 0.04, alpha: 1)
         let phrase = SharedSettings.phrase
 
         return ShieldConfiguration(
-            backgroundBlurStyle: .systemUltraThinMaterialDark,
-            backgroundColor: UIColor(red: 0.055, green: 0.05, blue: 0.075, alpha: 0.96),
+            backgroundBlurStyle: nil,
+            backgroundColor: outLoudBackground,
             icon: UIImage(systemName: "waveform.circle.fill")?.withTintColor(gold),
-            title: .init(text: "Pause before you open this.", color: .white),
+            title: .init(text: "Unlock with your voice", color: .white),
             subtitle: .init(
-                text: "Tap once. OutLoud will listen for “\(phrase)”.",
-                color: UIColor.white.withAlphaComponent(0.76)
+                text: "Say “\(phrase)”",
+                color: UIColor.white.withAlphaComponent(0.72)
             ),
-            primaryButtonLabel: .init(text: "Start the pause", color: .black),
+            primaryButtonLabel: .init(text: "Unlock", color: .black),
             primaryButtonBackgroundColor: gold,
-            secondaryButtonLabel: .init(text: "Go back", color: .white)
+            secondaryButtonLabel: .init(
+                text: "Not now",
+                color: UIColor.white.withAlphaComponent(0.68)
+            )
         )
     }
 }
