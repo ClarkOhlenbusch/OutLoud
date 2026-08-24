@@ -22,6 +22,13 @@ final class PhraseMatcherTests: XCTestCase {
         ))
     }
 
+    func testDifferentShortPhraseDoesNotMatchAtRelaxedThreshold() {
+        XCTAssertFalse(PhraseMatcher.matches(
+            transcript: "this can stop",
+            expected: "this can wait"
+        ))
+    }
+
     func testDifferentIntentDoesNotMatch() {
         XCTAssertFalse(PhraseMatcher.matches(
             transcript: "open the app now",

@@ -14,7 +14,10 @@ enum PhraseMatcher {
 
         let distance = editDistance(heard, target)
         let longest = max(heard.count, target.count)
-        return Double(distance) / Double(longest) <= 0.14
+        // Short speech-recognition substitutions can require several character
+        // edits (for example, "weight" for "wait") even when only one spoken
+        // word was misunderstood.
+        return Double(distance) / Double(longest) <= 0.20
     }
 
     static func normalize(_ value: String) -> String {

@@ -35,6 +35,7 @@ FEATURES
 - Protect apps using Apple's Screen Time controls
 - Choose a phrase that feels personal to you
 - Complete the pause with a focused, reactive voice screen
+- Return automatically to individually configured apps after speaking
 - Practice your phrase during setup
 - Re-arm protection after every visit with an optional Shortcuts automation
 - Keep settings and challenge state on your device
@@ -70,12 +71,12 @@ OutLoud uses Apple's Family Controls, Managed Settings, Device Activity, Speech,
 Test flow:
 
 1. Launch OutLoud and approve individual Screen Time authorization.
-2. Select any installed app in Apple's Family Activity picker.
+2. Select an installed app individually in Apple's Family Activity picker and match it to a supported automatic return destination.
 3. Keep or edit the default intention and complete the voice practice.
 4. Turn protection on.
-5. Open the selected app and tap **Start the pause** on the shield.
+5. Open the selected app and tap **Unlock** on the shield.
 6. OutLoud opens to the voice orb. Speak the displayed phrase.
-7. After confirmation, return to the selected app using the system app-switch gesture.
+7. After confirmation, OutLoud attempts to reopen the mapped destination automatically and provides a return button if the app link fails.
 
 No account or review credentials are required. The optional Shortcuts automation is explained during onboarding but is not required to test the core 15-minute access-window behavior.
 

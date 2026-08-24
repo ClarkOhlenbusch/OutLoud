@@ -32,6 +32,7 @@ enum SharedSettings {
         static let unlockExpiration = "unlockExpiration"
         static let onboardingCompleted = "onboardingCompleted"
         static let onboardingStep = "onboardingStep"
+        static let returnMappings = "returnMappings"
     }
 
     static var defaults: UserDefaults {
@@ -178,6 +179,16 @@ enum SharedSettings {
         set { defaults.set(newValue, forKey: Key.unlockExpiration) }
     }
 
+    static var returnMappings: [ApplicationReturnMapping] {
+        get {
+            guard let data = defaults.data(forKey: Key.returnMappings) else { return [] }
+            return (try? JSONDecoder().decode([ApplicationReturnMapping].self, from: data)) ?? []
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.returnMappings)
+        }
+    }
+
     private static var pendingChallengeURL: URL? {
         FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
@@ -196,6 +207,58 @@ enum PendingChallenge: Codable, Equatable {
     case webDomain(WebDomainToken)
     case selection
     case practice
+}
+
+enum ReturnDestination: String, CaseIterable, Codable, Identifiable {
+    case instagram
+    case tikTok
+    case youTube
+    case reddit
+    case x
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .instagram: "Instagram"
+        case .tikTok: "TikTok"
+        case .youTube: "YouTube"
+        case .reddit: "Reddit"
+        case .x: "X"
+        }
+    }
+
+    var systemImageName: String {
+        switch self {
+        case .instagram: "camera.fill"
+        case .tikTok: "music.note"
+        case .youTube: "play.rectangle.fill"
+        case .reddit: "bubble.left.and.bubble.right.fill"
+        case .x: "textformat"
+        }
+    }
+
+    var launchURLs: [URL] {
+        let values: [String]
+        switch self {
+        case .instagram:
+            values = ["instagram://app", "https://www.instagram.com/"]
+        case .tikTok:
+            values = ["snssdk1233://", "https://www.tiktok.com/"]
+        case .youTube:
+            values = ["youtube://", "https://www.youtube.com/"]
+        case .reddit:
+            values = ["reddit://", "https://www.reddit.com/"]
+        case .x:
+            values = ["twitter://", "https://x.com/"]
+        }
+        return values.compactMap(URL.init(string:))
+    }
+}
+
+struct ApplicationReturnMapping: Codable, Equatable {
+    let applicationToken: ApplicationToken
+    var destination: ReturnDestination
 }
 
 extension PendingChallenge {

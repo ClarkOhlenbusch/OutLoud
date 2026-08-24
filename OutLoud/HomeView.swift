@@ -1,4 +1,5 @@
 import FamilyControls
+import ManagedSettings
 import SwiftUI
 
 private let outLoudAccent = Color(red: 0.96, green: 0.76, blue: 0.25)
@@ -9,6 +10,7 @@ struct HomeView: View {
     @State private var showingDemoPicker = false
     @State private var showingPhraseEditor = false
     @State private var showingRearmSetup = false
+    @State private var showingReturnSetup = false
 
     var body: some View {
         NavigationStack {
@@ -39,6 +41,10 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingRearmSetup) {
                 RearmAutomationSetupView()
+            }
+            .sheet(isPresented: $showingReturnSetup) {
+                AutoReturnSetupView()
+                    .environmentObject(model)
             }
             .onChange(of: model.selection) { _, _ in model.saveSelection() }
             .alert("Something went wrong", isPresented: errorBinding) {
@@ -122,6 +128,16 @@ struct HomeView: View {
             Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
 
             SettingsRow(
+                icon: "arrowshape.turn.up.right.fill",
+                title: "Auto-return",
+                value: returnSetupSummary
+            ) {
+                showingReturnSetup = true
+            }
+
+            Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
+
+            SettingsRow(
                 icon: "arrow.clockwise",
                 title: "Every visit",
                 value: "Shortcuts setup"
@@ -170,6 +186,14 @@ struct HomeView: View {
         return count == 0 ? "Choose apps" : "\(count) selected"
     }
 
+    private var returnSetupSummary: String {
+        let total = model.selection.applicationTokens.count
+        guard total > 0 else { return "Choose individual apps" }
+        return model.mappedApplicationCount == total
+            ? "Ready"
+            : "\(model.mappedApplicationCount) of \(total)"
+    }
+
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { model.errorMessage != nil },
@@ -183,6 +207,7 @@ struct OnboardingView: View {
     @State private var showingPicker = false
     @State private var showingDemoPicker = false
     @State private var showingRearmSetup = false
+    @State private var showingReturnSetup = false
     @State private var viewedRearmSetup = false
     @FocusState private var phraseIsFocused: Bool
 
@@ -208,6 +233,12 @@ struct OnboardingView: View {
             viewedRearmSetup = true
         }) {
             RearmAutomationSetupView()
+        }
+        .sheet(isPresented: $showingReturnSetup) {
+            AutoReturnSetupView(requiresCompleteMapping: true) {
+                move(to: .phrase)
+            }
+            .environmentObject(model)
         }
         .onChange(of: model.selection) { _, _ in model.saveSelection() }
         .alert("Something went wrong", isPresented: errorBinding) {
@@ -306,31 +337,46 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: "app.badge.checkmark",
             title: "Choose your apps",
-            message: "Pick the apps you want to pause before opening."
+            message: "Pick apps individually so OutLoud can return to the right one."
         ) {
-            Button {
-                model.isDemoMode ? (showingDemoPicker = true) : (showingPicker = true)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: model.selectedItemCount == 0 ? "plus" : "checkmark")
-                    Text(model.selectedItemCount == 0 ? "Choose apps" : "\(model.selectedItemCount) selected")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
+            VStack(spacing: 12) {
+                Button {
+                    model.isDemoMode ? (showingDemoPicker = true) : (showingPicker = true)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: model.selectedItemCount == 0 ? "plus" : "checkmark")
+                        Text(model.selectedItemCount == 0 ? "Choose apps" : "\(model.selectedItemCount) selected")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.bold())
+                            .foregroundStyle(.secondary)
+                    }
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(16)
+                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
                 }
-                .font(.body.weight(.semibold))
-                .foregroundStyle(.white)
-                .padding(16)
-                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                .buttonStyle(.plain)
+
+                if model.hasUnsupportedReturnSelection && !model.isDemoMode {
+                    Label("Choose apps—not categories or websites.", systemImage: "exclamationmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .multilineTextAlignment(.center)
+                }
             }
-            .buttonStyle(.plain)
         } action: {
             primaryButton("Continue") {
-                move(to: .phrase)
+                if model.isDemoMode || !model.needsReturnSetup {
+                    move(to: .phrase)
+                } else {
+                    showingReturnSetup = true
+                }
             }
-            .disabled(model.selectedItemCount == 0)
-            .opacity(model.selectedItemCount == 0 ? 0.35 : 1)
+            .disabled(model.selectedItemCount == 0 || model.hasUnsupportedReturnSelection)
+            .opacity(
+                model.selectedItemCount == 0 || model.hasUnsupportedReturnSelection ? 0.35 : 1
+            )
         }
     }
 
@@ -576,6 +622,123 @@ private struct PhraseEditorView: View {
     }
 }
 
+struct AutoReturnSetupView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+
+    var requiresCompleteMapping = false
+    var onComplete: (() -> Void)?
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                OutLoudBackground()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        Text("Match each protected app once. After you say your phrase, OutLoud will send you straight back.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+
+                        if model.protectedApplicationTokens.isEmpty {
+                            emptyState
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(model.protectedApplicationTokens, id: \.self) { token in
+                                    returnMappingRow(for: token)
+
+                                    if token != model.protectedApplicationTokens.last {
+                                        Divider().overlay(.white.opacity(0.08))
+                                    }
+                                }
+                            }
+                            .background(
+                                .white.opacity(0.055),
+                                in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            )
+                        }
+
+                        if model.hasUnsupportedReturnSelection {
+                            Label(
+                                "Categories and websites cannot identify the originating app. Choose apps individually for automatic return.",
+                                systemImage: "info.circle.fill"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Auto-return")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                        onComplete?()
+                    }
+                    .disabled(requiresCompleteMapping && model.needsReturnSetup)
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "app.badge.checkmark")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(outLoudAccent)
+            Text("Choose individual apps first")
+                .font(.headline)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+        .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20))
+    }
+
+    private func returnMappingRow(for token: ApplicationToken) -> some View {
+        HStack(spacing: 12) {
+            Label(token)
+                .font(.body.weight(.semibold))
+                .lineLimit(1)
+
+            Spacer(minLength: 12)
+
+            Menu {
+                ForEach(ReturnDestination.allCases) { destination in
+                    Button {
+                        model.setReturnDestination(destination, for: token)
+                    } label: {
+                        Label(destination.displayName, systemImage: destination.systemImageName)
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Text(model.returnDestination(for: token)?.displayName ?? "Choose")
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.caption2.bold())
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(
+                    model.returnDestination(for: token) == nil ? outLoudAccent : .white.opacity(0.78)
+                )
+                .padding(.horizontal, 11)
+                .padding(.vertical, 8)
+                .background(.white.opacity(0.07), in: Capsule())
+            }
+        }
+        .padding(.horizontal, 16)
+        .frame(minHeight: 66)
+    }
+}
+
 struct RearmAutomationSetupView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
@@ -710,7 +873,7 @@ private struct DemoAppPicker: View {
     }
 }
 
-private struct PrimaryButtonStyle: ButtonStyle {
+struct PrimaryButtonStyle: ButtonStyle {
     let color: Color
 
     func makeBody(configuration: Configuration) -> some View {

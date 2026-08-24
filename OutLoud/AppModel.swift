@@ -1,6 +1,7 @@
 import DeviceActivity
 import FamilyControls
 import Foundation
+import ManagedSettings
 import OSLog
 import UserNotifications
 
@@ -15,6 +16,7 @@ final class AppModel: ObservableObject {
     @Published var authorizationStatus: AuthorizationStatus
     @Published var onboardingCompleted: Bool
     @Published var onboardingStep: OnboardingStep
+    @Published var returnMappings: [ApplicationReturnMapping]
     @Published var errorMessage: String?
     @Published var demoSelectedApps: Set<String> = ["Instagram", "TikTok"]
 
@@ -29,6 +31,7 @@ final class AppModel: ObservableObject {
         authorizationStatus = AuthorizationCenter.shared.authorizationStatus
         onboardingCompleted = SharedSettings.onboardingCompleted
         onboardingStep = OnboardingStep(storedValue: SharedSettings.onboardingStep)
+        returnMappings = SharedSettings.returnMappings
 
         OutLoudLog.lifecycle.info(
             "Model initialized; onboarding complete: \(self.onboardingCompleted, privacy: .public), protection enabled: \(self.protectionEnabled, privacy: .public), selected count: \(self.selectedItemCount, privacy: .public)"
@@ -47,6 +50,22 @@ final class AppModel: ObservableObject {
 
     var selectedItemCount: Int {
         isDemoMode ? demoSelectedApps.count : selection.selectedItemCount
+    }
+
+    var protectedApplicationTokens: [ApplicationToken] {
+        Array(selection.applicationTokens)
+    }
+
+    var mappedApplicationCount: Int {
+        selection.applicationTokens.filter { returnDestination(for: $0) != nil }.count
+    }
+
+    var needsReturnSetup: Bool {
+        !isDemoMode && mappedApplicationCount < selection.applicationTokens.count
+    }
+
+    var hasUnsupportedReturnSelection: Bool {
+        !selection.categoryTokens.isEmpty || !selection.webDomainTokens.isEmpty
     }
 
     func requestAuthorization() async {
@@ -74,6 +93,7 @@ final class AppModel: ObservableObject {
             )
             return
         }
+        pruneReturnMappings()
         SharedSettings.selection = selection
         OutLoudLog.screenTime.info(
             "Saved protected selection; selected count: \(self.selectedItemCount, privacy: .public)"
@@ -87,6 +107,29 @@ final class AppModel: ObservableObject {
         SharedSettings.phrase = phrase
         OutLoudLog.challenge.debug(
             "Saved challenge phrase; character count: \(self.phrase.count, privacy: .public)"
+        )
+    }
+
+    func returnDestination(for token: ApplicationToken) -> ReturnDestination? {
+        returnMappings.first { $0.applicationToken == token }?.destination
+    }
+
+    func returnDestinationForPendingChallenge() -> ReturnDestination? {
+        guard case let .application(token) = pendingChallenge else { return nil }
+        return returnDestination(for: token)
+    }
+
+    func setReturnDestination(_ destination: ReturnDestination, for token: ApplicationToken) {
+        if let index = returnMappings.firstIndex(where: { $0.applicationToken == token }) {
+            returnMappings[index].destination = destination
+        } else {
+            returnMappings.append(
+                ApplicationReturnMapping(applicationToken: token, destination: destination)
+            )
+        }
+        SharedSettings.returnMappings = returnMappings
+        OutLoudLog.screenTime.info(
+            "Saved automatic return destination: \(destination.displayName, privacy: .public)"
         )
     }
 
@@ -216,6 +259,12 @@ final class AppModel: ObservableObject {
         components.calendar = calendar
         components.timeZone = calendar.timeZone
         return components
+    }
+
+    private func pruneReturnMappings() {
+        let selectedTokens = selection.applicationTokens
+        returnMappings.removeAll { !selectedTokens.contains($0.applicationToken) }
+        SharedSettings.returnMappings = returnMappings
     }
 
     private func requestFallbackNotificationAuthorization() async -> Bool {

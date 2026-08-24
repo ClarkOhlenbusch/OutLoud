@@ -5,13 +5,13 @@ permalink: /privacy/
 
 # OutLoud Privacy Policy
 
-Last updated: August 21, 2026
+Last updated: August 24, 2026
 
 OutLoud does not collect, sell, share, or use personal data for tracking.
 
 ## Information stored on the device
 
-OutLoud stores the user's settings, chosen phrase, protection state, and temporary challenge state in an on-device App Group container shared only by OutLoud and its Screen Time extensions.
+OutLoud stores the user's settings, chosen phrase, protection state, automatic return mappings, and temporary challenge state in an on-device App Group container shared only by OutLoud and its Screen Time extensions.
 
 Apps and websites selected through Apple's Family Controls picker are represented by opaque system tokens. OutLoud does not receive their names and does not transmit those tokens off the device.
 

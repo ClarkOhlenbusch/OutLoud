@@ -21,7 +21,7 @@
 OutLoud guides the user through one item per screen:
 
 1. Approve Screen Time access.
-2. Choose protected apps.
+2. Choose protected apps individually and match their automatic return destinations.
 3. Choose and practice the spoken phrase.
 4. Optionally configure the one-time Shortcuts automation for automatic re-arming.
 5. Turn on protection.
@@ -31,10 +31,10 @@ Microphone and Speech Recognition access are requested during the practice. On i
 ## Test the complete flow
 
 1. Open a protected app.
-2. Tap **Start the pause** on the system shield.
+2. Tap **Unlock** on the system shield.
 3. OutLoud opens to the voice orb on iOS 26.5 or newer.
 4. Say the displayed phrase.
-5. After the green confirmation, use the bottom-edge app-switch gesture to return to the protected app.
+5. OutLoud automatically returns to a configured app. If its app link fails, use the visible return button.
 
 ## Common fixes
 

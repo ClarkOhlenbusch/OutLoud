@@ -1,10 +1,13 @@
 import SwiftUI
+import UIKit
 
 struct ChallengeView: View {
     @EnvironmentObject private var model: AppModel
     @StateObject private var speech = SpeechChallengeController()
     @State private var completed = false
     @State private var started = false
+    @State private var returnDestination: ReturnDestination?
+    @State private var isReturning = false
 
     private let accent = Color(red: 0.96, green: 0.76, blue: 0.25)
 
@@ -104,24 +107,7 @@ struct ChallengeView: View {
                     .padding(.horizontal, 24)
                     .padding(.bottom, 8)
                 } else {
-                    VStack(spacing: 8) {
-                        Text("Swipe right along the bottom edge to go back.")
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .multilineTextAlignment(.center)
-
-                        HStack(spacing: 8) {
-                            Capsule()
-                                .fill(.white.opacity(0.48))
-                                .frame(width: 112, height: 5)
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 14, weight: .bold))
-                        }
-                    }
-                    .foregroundStyle(.white.opacity(0.72))
-                    .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 2)
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    returnControl
                 }
             }
         }
@@ -203,9 +189,90 @@ struct ChallengeView: View {
     }
 
     private func finishChallenge() {
+        let destination = model.returnDestinationForPendingChallenge()
         guard model.completeChallenge() else { return }
+        returnDestination = destination
         withAnimation(.easeOut(duration: 0.3)) {
             completed = true
         }
+
+        guard !isPractice, let destination else { return }
+        isReturning = true
+        Task {
+            // Give Managed Settings a brief moment to remove the originating
+            // app's shield before asking iOS to open it again.
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            await openReturnDestination(destination)
+        }
+    }
+
+    @ViewBuilder
+    private var returnControl: some View {
+        if let returnDestination {
+            Button {
+                Task { await openReturnDestination(returnDestination) }
+            } label: {
+                HStack(spacing: 9) {
+                    if isReturning {
+                        ProgressView()
+                            .tint(.black)
+                    } else {
+                        Image(systemName: "arrow.up.forward.app.fill")
+                    }
+                    Text(isReturning ? "Returning to \(returnDestination.displayName)…" : "Return to \(returnDestination.displayName)")
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(PrimaryButtonStyle(color: accent))
+            .disabled(isReturning)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 8)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        } else {
+            VStack(spacing: 8) {
+                Text("Swipe right along the bottom edge to go back.")
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .multilineTextAlignment(.center)
+
+                HStack(spacing: 8) {
+                    Capsule()
+                        .fill(.white.opacity(0.48))
+                        .frame(width: 112, height: 5)
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 14, weight: .bold))
+                }
+            }
+            .foregroundStyle(.white.opacity(0.72))
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 2)
+            .transition(.opacity.combined(with: .move(edge: .bottom)))
+        }
+    }
+
+    @MainActor
+    private func openReturnDestination(_ destination: ReturnDestination) async {
+        isReturning = true
+        defer { isReturning = false }
+
+        for url in destination.launchURLs {
+            let options: [UIApplication.OpenExternalURLOptionsKey: Any]
+            if url.scheme == "https" {
+                options = [.universalLinksOnly: true]
+            } else {
+                options = [:]
+            }
+
+            if await UIApplication.shared.open(url, options: options) {
+                OutLoudLog.challenge.info(
+                    "Opened automatic return destination: \(destination.displayName, privacy: .public)"
+                )
+                return
+            }
+        }
+
+        OutLoudLog.challenge.error(
+            "Could not open automatic return destination: \(destination.displayName, privacy: .public)"
+        )
     }
 }

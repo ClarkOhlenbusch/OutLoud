@@ -25,4 +25,17 @@ final class OnboardingStepTests: XCTestCase {
     func testProgressCountExcludesWelcomePage() {
         XCTAssertEqual(OnboardingStep.progressCount, 5)
     }
+
+    func testEveryReturnDestinationHasAnAppLinkAndUniversalLink() {
+        for destination in ReturnDestination.allCases {
+            XCTAssertEqual(destination.launchURLs.count, 2)
+            XCTAssertNotEqual(destination.launchURLs[0].scheme, "https")
+            XCTAssertEqual(destination.launchURLs[1].scheme, "https")
+        }
+    }
+
+    func testReturnDestinationDisplayNamesAreUnique() {
+        let names = ReturnDestination.allCases.map(\.displayName)
+        XCTAssertEqual(Set(names).count, names.count)
+    }
 }
