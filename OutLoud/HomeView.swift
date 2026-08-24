@@ -3,13 +3,22 @@ import ManagedSettings
 import SwiftUI
 
 private let outLoudAccent = Color(red: 0.96, green: 0.76, blue: 0.25)
+private let accessWindowOptions: [(seconds: TimeInterval, title: String)] = [
+    (15 * 60, "15 min"),
+    (30 * 60, "30 min"),
+    (60 * 60, "1 hour")
+]
+
+private func accessWindowTitle(for seconds: TimeInterval) -> String {
+    accessWindowOptions.first { $0.seconds == seconds }?.title ?? "15 min"
+}
 
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showingPicker = false
     @State private var showingDemoPicker = false
     @State private var showingPhraseEditor = false
-    @State private var showingRearmSetup = false
+    @State private var showingAskAgainSetup = false
     @State private var showingReturnSetup = false
 
     var body: some View {
@@ -39,8 +48,9 @@ struct HomeView: View {
                 PhraseEditorView()
                     .environmentObject(model)
             }
-            .sheet(isPresented: $showingRearmSetup) {
-                RearmAutomationSetupView()
+            .sheet(isPresented: $showingAskAgainSetup) {
+                AskAgainSetupView()
+                    .environmentObject(model)
             }
             .sheet(isPresented: $showingReturnSetup) {
                 AutoReturnSetupView()
@@ -119,8 +129,8 @@ struct HomeView: View {
 
             SettingsRow(
                 icon: "quote.bubble.fill",
-                title: "Phrase",
-                value: model.phrase
+                title: "Phrases",
+                value: model.phraseSummary
             ) {
                 showingPhraseEditor = true
             }
@@ -138,11 +148,11 @@ struct HomeView: View {
             Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
 
             SettingsRow(
-                icon: "arrow.clockwise",
-                title: "Every visit",
-                value: "Shortcuts setup"
+                icon: "timer",
+                title: "Ask again",
+                value: askAgainSummary
             ) {
-                showingRearmSetup = true
+                showingAskAgainSetup = true
             }
         }
         .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -192,6 +202,13 @@ struct HomeView: View {
         return model.mappedApplicationCount == total
             ? "Ready"
             : "\(model.mappedApplicationCount) of \(total)"
+    }
+
+    private var askAgainSummary: String {
+        switch model.askAgainMode {
+        case .everyVisit: "Every visit"
+        case .afterTime: "After \(accessWindowTitle(for: model.gracePeriod))"
+        }
     }
 
     private var errorBinding: Binding<Bool> {
@@ -383,18 +400,36 @@ struct OnboardingView: View {
     private var phrasePage: some View {
         OnboardingPage(
             icon: "quote.bubble.fill",
-            title: "Choose your phrase",
-            message: "Say it once now so your first real pause feels familiar."
+            title: "Choose your phrases",
+            message: "Add one phrase per line. You can say any one of them."
         ) {
-            TextField("Your phrase", text: $model.phrase, axis: .vertical)
-                .focused($phraseIsFocused)
-                .font(.title3.weight(.semibold))
-                .multilineTextAlignment(.center)
-                .lineLimit(2...4)
-                .padding(18)
-                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+            VStack(spacing: 14) {
+                TextEditor(text: $model.phrase)
+                    .focused($phraseIsFocused)
+                    .font(.title3.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .scrollContentBackground(.hidden)
+                    .frame(minHeight: 120, maxHeight: 190)
+                    .padding(14)
+                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+
+                Toggle(
+                    "Accept similar acknowledgments",
+                    isOn: Binding(
+                        get: { model.acceptsSimilarAcknowledgements },
+                        set: { model.setAcceptsSimilarAcknowledgements($0) }
+                    )
+                )
+                .font(.subheadline.weight(.semibold))
+                .tint(outLoudAccent)
+
+                Text("Understands phrases like “I know this is a poor decision” on device, with no paid AI service.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
         } action: {
-            primaryButton("Practice this phrase") {
+            primaryButton("Practice") {
                 phraseIsFocused = false
                 model.savePhrase()
                 model.beginPractice()
@@ -404,35 +439,69 @@ struct OnboardingView: View {
 
     private var everyVisitPage: some View {
         OnboardingPage(
-            icon: "arrow.clockwise",
-            title: "Make it work every visit",
-            message: "One Shortcuts automation re-arms OutLoud when you leave a protected app."
+            icon: "timer",
+            title: "When should we ask again?",
+            message: "Choose whether leaving the app ends your access or a timer keeps it unlocked."
         ) {
-            if viewedRearmSetup {
-                statusPill("Instructions viewed", icon: "checkmark")
+            VStack(spacing: 12) {
+                AskAgainOption(
+                    icon: "arrow.clockwise",
+                    title: "Every visit",
+                    detail: "Ask again after you leave the app.",
+                    selected: model.askAgainMode == .everyVisit
+                ) {
+                    model.setAskAgainMode(.everyVisit)
+                }
+
+                AskAgainOption(
+                    icon: "timer",
+                    title: "Use a timer",
+                    detail: "Keep access open across visits.",
+                    selected: model.askAgainMode == .afterTime
+                ) {
+                    model.setAskAgainMode(.afterTime)
+                }
+
+                if model.askAgainMode == .afterTime {
+                    AccessWindowPicker(selection: Binding(
+                        get: { model.gracePeriod },
+                        set: { model.setGracePeriod($0) }
+                    ))
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                } else if viewedRearmSetup {
+                    statusPill("Automation steps viewed", icon: "checkmark")
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: model.askAgainMode)
         } action: {
             VStack(spacing: 10) {
-                primaryButton(viewedRearmSetup ? "Continue" : "Show setup steps") {
-                    if viewedRearmSetup {
+                primaryButton(onboardingTimingButtonTitle) {
+                    if model.askAgainMode == .afterTime || viewedRearmSetup {
                         move(to: .ready)
                     } else {
                         showingRearmSetup = true
                     }
                 }
 
-                Button(viewedRearmSetup ? "View steps again" : "Set up later") {
-                    if viewedRearmSetup {
-                        showingRearmSetup = true
-                    } else {
-                        move(to: .ready)
+                if model.askAgainMode == .everyVisit {
+                    Button(viewedRearmSetup ? "View steps again" : "Set up later") {
+                        if viewedRearmSetup {
+                            showingRearmSetup = true
+                        } else {
+                            move(to: .ready)
+                        }
                     }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .frame(height: 40)
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.white.opacity(0.58))
-                .frame(height: 40)
             }
         }
+    }
+
+    private var onboardingTimingButtonTitle: String {
+        if model.askAgainMode == .afterTime || viewedRearmSetup { return "Continue" }
+        return "Set up every visit"
     }
 
     private var readyPage: some View {
@@ -569,43 +638,63 @@ private struct PhraseEditorView: View {
             ZStack {
                 OutLoudBackground()
 
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("What should you say before continuing?")
-                        .font(.title2.bold())
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text("What can you say before continuing?")
+                            .font(.title2.bold())
 
-                    TextField("Your phrase", text: $model.phrase, axis: .vertical)
-                        .focused($phraseIsFocused)
-                        .font(.title3.weight(.semibold))
-                        .lineLimit(2...4)
-                        .padding(16)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                        Text("Add one phrase per line. Saying any one will continue.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(suggestions, id: \.self) { suggestion in
-                            Button {
-                                model.phrase = suggestion
-                            } label: {
-                                HStack {
-                                    Text(suggestion)
-                                        .multilineTextAlignment(.leading)
-                                    Spacer()
-                                    if model.phrase == suggestion {
-                                        Image(systemName: "checkmark")
-                                            .foregroundStyle(outLoudAccent)
+                        TextEditor(text: $model.phrase)
+                            .focused($phraseIsFocused)
+                            .font(.title3.weight(.semibold))
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 130, maxHeight: 220)
+                            .padding(16)
+                            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+
+                        Toggle(
+                            "Accept similar acknowledgments",
+                            isOn: Binding(
+                                get: { model.acceptsSimilarAcknowledgements },
+                                set: { model.setAcceptsSimilarAcknowledgements($0) }
+                            )
+                        )
+                        .tint(outLoudAccent)
+
+                        Text("Uses on-device language understanding. No paid AI service or account is required.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(suggestions, id: \.self) { suggestion in
+                                Button {
+                                    toggleSuggestion(suggestion)
+                                } label: {
+                                    HStack {
+                                        Text(suggestion)
+                                            .multilineTextAlignment(.leading)
+                                        Spacer()
+                                        if model.phrases.contains(suggestion) {
+                                            Image(systemName: "checkmark")
+                                                .foregroundStyle(outLoudAccent)
+                                        }
                                     }
+                                    .padding(.vertical, 6)
                                 }
-                                .padding(.vertical, 6)
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
                         }
-                    }
-                    .foregroundStyle(.white.opacity(0.76))
+                        .foregroundStyle(.white.opacity(0.76))
 
-                    Spacer()
+                        Spacer()
+                    }
+                    .padding(20)
                 }
-                .padding(20)
             }
-            .navigationTitle("Your phrase")
+            .navigationTitle("Your phrases")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
@@ -619,6 +708,16 @@ private struct PhraseEditorView: View {
         }
         .preferredColorScheme(.dark)
         .onAppear { phraseIsFocused = true }
+    }
+
+    private func toggleSuggestion(_ suggestion: String) {
+        var phrases = model.phrases
+        if let index = phrases.firstIndex(of: suggestion) {
+            phrases.remove(at: index)
+        } else {
+            phrases.append(suggestion)
+        }
+        model.phrase = phrases.joined(separator: "\n")
     }
 }
 
@@ -636,7 +735,7 @@ struct AutoReturnSetupView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        Text("Match each protected app once. After you say your phrase, OutLoud will send you straight back.")
+                        Text("Match each protected app once. After you say a phrase, OutLoud will send you straight back.")
                             .font(.body)
                             .foregroundStyle(.secondary)
 
@@ -736,6 +835,167 @@ struct AutoReturnSetupView: View {
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 66)
+    }
+}
+
+private struct AskAgainOption: View {
+    let icon: String
+    let title: String
+    let detail: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(selected ? outLoudAccent : .white.opacity(0.62))
+                    .frame(width: 30)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 10)
+
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(selected ? outLoudAccent : .white.opacity(0.22))
+            }
+            .foregroundStyle(.white)
+            .padding(15)
+            .background(
+                selected ? outLoudAccent.opacity(0.1) : .white.opacity(0.055),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(selected ? outLoudAccent.opacity(0.5) : .white.opacity(0.07), lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct AccessWindowPicker: View {
+    @Binding var selection: TimeInterval
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Keep apps unlocked for")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.72))
+
+            Picker("Keep apps unlocked for", selection: $selection) {
+                ForEach(accessWindowOptions, id: \.seconds) { option in
+                    Text(option.title).tag(option.seconds)
+                }
+            }
+            .pickerStyle(.segmented)
+        }
+        .padding(.top, 4)
+    }
+}
+
+struct AskAgainSetupView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingRearmSetup = false
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                OutLoudBackground()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("When should OutLoud ask again?")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                            Text("This applies after you complete a phrase and unlock an app.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(spacing: 12) {
+                            AskAgainOption(
+                                icon: "arrow.clockwise",
+                                title: "Every visit",
+                                detail: "Lock again when you leave the app.",
+                                selected: model.askAgainMode == .everyVisit
+                            ) {
+                                model.setAskAgainMode(.everyVisit)
+                            }
+
+                            AskAgainOption(
+                                icon: "timer",
+                                title: "Use a timer",
+                                detail: "Keep access open across app visits.",
+                                selected: model.askAgainMode == .afterTime
+                            ) {
+                                model.setAskAgainMode(.afterTime)
+                            }
+                        }
+
+                        if model.askAgainMode == .afterTime {
+                            VStack(alignment: .leading, spacing: 14) {
+                                AccessWindowPicker(selection: Binding(
+                                    get: { model.gracePeriod },
+                                    set: { model.setGracePeriod($0) }
+                                ))
+
+                                Label(
+                                    "Your protected apps stay unlocked until the timer ends, even if you leave and come back.",
+                                    systemImage: "info.circle.fill"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        } else {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Text("Every visit uses a personal automation in Shortcuts to lock protected apps again when you leave them.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                Button {
+                                    showingRearmSetup = true
+                                } label: {
+                                    Label("Set up Shortcuts automation", systemImage: "arrow.up.forward.app.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(PrimaryButtonStyle(color: outLoudAccent))
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
+                    }
+                    .padding(20)
+                    .padding(.bottom, 24)
+                    .animation(.easeInOut(duration: 0.2), value: model.askAgainMode)
+                }
+            }
+            .navigationTitle("Ask again")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .sheet(isPresented: $showingRearmSetup) {
+                RearmAutomationSetupView()
+            }
+        }
+        .preferredColorScheme(.dark)
     }
 }
 

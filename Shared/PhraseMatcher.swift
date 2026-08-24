@@ -1,6 +1,13 @@
 import Foundation
 
 enum PhraseMatcher {
+    static func matches(
+        transcript: String,
+        expectedPhrases: [String]
+    ) -> Bool {
+        expectedPhrases.contains(where: { matches(transcript: transcript, expected: $0) })
+    }
+
     static func matches(transcript: String, expected: String) -> Bool {
         let heard = normalize(transcript)
         let target = normalize(expected)
@@ -14,10 +21,27 @@ enum PhraseMatcher {
 
         let distance = editDistance(heard, target)
         let longest = max(heard.count, target.count)
+        if !heard.contains(" "),
+           !target.contains(" "),
+           longest >= 4,
+           distance == 1 {
+            return true
+        }
         // Short speech-recognition substitutions can require several character
         // edits (for example, "weight" for "wait") even when only one spoken
         // word was misunderstood.
         return Double(distance) / Double(longest) <= 0.20
+    }
+
+    static func phrases(from value: String) -> [String] {
+        var seen = Set<String>()
+        return value
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { phrase in
+                guard !phrase.isEmpty else { return false }
+                return seen.insert(normalize(phrase)).inserted
+            }
     }
 
     static func normalize(_ value: String) -> String {
@@ -25,6 +49,8 @@ enum PhraseMatcher {
         let replacements = [
             "i'm": "i am",
             "i’m": "i am",
+            "isn't": "is not",
+            "isn’t": "is not",
             "it's": "it is",
             "it’s": "it is",
             "don't": "do not",

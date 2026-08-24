@@ -24,7 +24,10 @@ enum SharedSettings {
     private enum Key {
         static let selection = "selection"
         static let phrase = "phrase"
+        static let phrases = "phrases"
+        static let acceptsSimilarAcknowledgements = "acceptsSimilarAcknowledgements"
         static let protectionEnabled = "protectionEnabled"
+        static let askAgainMode = "askAgainMode"
         static let gracePeriod = "gracePeriod"
         static let pendingChallenge = "pendingChallenge"
         static let challengeRequestID = "challengeRequestID"
@@ -60,9 +63,42 @@ enum SharedSettings {
         set { defaults.set(newValue, forKey: Key.phrase) }
     }
 
+    static var phrases: [String] {
+        get {
+            if let data = defaults.data(forKey: Key.phrases),
+               let stored = try? JSONDecoder().decode([String].self, from: data),
+               !stored.isEmpty {
+                return stored
+            }
+            return [phrase]
+        }
+        set {
+            let saved = newValue.isEmpty ? ["I am choosing to spend my time here"] : newValue
+            defaults.set(try? JSONEncoder().encode(saved), forKey: Key.phrases)
+            // Keep the original key current for installs upgrading from the
+            // single-phrase version and for older extensions during an update.
+            phrase = saved[0]
+        }
+    }
+
+    static var acceptsSimilarAcknowledgements: Bool {
+        get { defaults.bool(forKey: Key.acceptsSimilarAcknowledgements) }
+        set { defaults.set(newValue, forKey: Key.acceptsSimilarAcknowledgements) }
+    }
+
     static var protectionEnabled: Bool {
         get { defaults.object(forKey: Key.protectionEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.protectionEnabled) }
+    }
+
+    static var askAgainMode: AskAgainMode {
+        get {
+            guard let rawValue = defaults.string(forKey: Key.askAgainMode) else {
+                return .everyVisit
+            }
+            return AskAgainMode(rawValue: rawValue) ?? .everyVisit
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.askAgainMode) }
     }
 
     static var onboardingCompleted: Bool {
@@ -193,6 +229,18 @@ enum SharedSettings {
         FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
             .appendingPathComponent(pendingChallengeFilename, isDirectory: false)
+    }
+}
+
+enum AskAgainMode: String {
+    case everyVisit
+    case afterTime
+
+    func accessWindowDuration(timerDuration: TimeInterval) -> TimeInterval {
+        switch self {
+        case .everyVisit: 15 * 60
+        case .afterTime: timerDuration
+        }
     }
 }
 

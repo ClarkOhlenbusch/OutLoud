@@ -16,7 +16,11 @@ final class SpeechChallengeController: NSObject, ObservableObject {
     private var task: SFSpeechRecognitionTask?
     private var hasAudioTap = false
 
-    func requestAndStart(expectedPhrase: String, onMatch: @escaping () -> Void) {
+    func requestAndStart(
+        expectedPhrases: [String],
+        acceptsSimilarAcknowledgements: Bool,
+        onMatch: @escaping () -> Void
+    ) {
         OutLoudLog.speech.info("Preparing speech challenge")
         stop()
         transcript = ""
@@ -34,7 +38,11 @@ final class SpeechChallengeController: NSObject, ObservableObject {
                         return
                     }
                     OutLoudLog.speech.info("Speech and microphone permissions are available")
-                    self.start(expectedPhrase: expectedPhrase, onMatch: onMatch)
+                    self.start(
+                        expectedPhrases: expectedPhrases,
+                        acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements,
+                        onMatch: onMatch
+                    )
                 }
             }
         }
@@ -56,7 +64,11 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         OutLoudLog.speech.debug("Speech capture stopped")
     }
 
-    private func start(expectedPhrase: String, onMatch: @escaping () -> Void) {
+    private func start(
+        expectedPhrases: [String],
+        acceptsSimilarAcknowledgements: Bool,
+        onMatch: @escaping () -> Void
+    ) {
         guard let recognizer, recognizer.isAvailable else {
             OutLoudLog.speech.error("Speech recognizer is unavailable")
             errorMessage = "Speech recognition is unavailable right now."
@@ -70,7 +82,8 @@ final class SpeechChallengeController: NSObject, ObservableObject {
 
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
-            request.contextualStrings = [expectedPhrase]
+            request.taskHint = .confirmation
+            request.contextualStrings = Self.contextualStrings(for: expectedPhrases)
             if recognizer.supportsOnDeviceRecognition {
                 request.requiresOnDeviceRecognition = true
             }
@@ -105,7 +118,15 @@ final class SpeechChallengeController: NSObject, ObservableObject {
                     if let result {
                         let text = result.bestTranscription.formattedString
                         self.transcript = text
-                        if PhraseMatcher.matches(transcript: text, expected: expectedPhrase) {
+                        let candidates = result.transcriptions.map(\.formattedString)
+                        if candidates.contains(where: {
+                            PhraseMatcher.matches(
+                                transcript: $0,
+                                expectedPhrases: expectedPhrases
+                            )
+                            || (acceptsSimilarAcknowledgements
+                                && FlexibleAcknowledgementMatcher.matches(transcript: $0))
+                        }) {
                             OutLoudLog.speech.info("Spoken phrase matched")
                             self.stop()
                             onMatch()
@@ -128,6 +149,17 @@ final class SpeechChallengeController: NSObject, ObservableObject {
             stop()
             errorMessage = "The microphone couldn’t start. \(error.localizedDescription)"
         }
+    }
+
+    private static func contextualStrings(for phrases: [String]) -> [String] {
+        var seen = Set<String>()
+        let individualWords = phrases.flatMap {
+            PhraseMatcher.normalize($0).split(separator: " ").map(String.init)
+        }
+        return (phrases + individualWords)
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+            .prefix(100)
+            .map { $0 }
     }
 
     private nonisolated static func normalizedAudioLevel(from buffer: AVAudioPCMBuffer) -> CGFloat {

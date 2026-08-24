@@ -75,7 +75,13 @@ final class ShieldActionExtension: ShieldActionDelegate {
     private func sendChallengeNotification() {
         let content = UNMutableNotificationContent()
         content.title = "Say it out loud"
-        content.body = "Tap to say “\(SharedSettings.phrase)” and continue."
+        if SharedSettings.acceptsSimilarAcknowledgements {
+            content.body = "Tap to acknowledge the choice out loud and continue."
+        } else if SharedSettings.phrases.count == 1 {
+            content.body = "Tap to say “\(SharedSettings.phrases[0])” and continue."
+        } else {
+            content.body = "Tap to say one of your phrases and continue."
+        }
         content.sound = .default
         content.categoryIdentifier = "OUTLOUD_CHALLENGE"
 

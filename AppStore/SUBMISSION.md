@@ -49,7 +49,7 @@ After all four Family Controls distribution requests are assigned:
 
 ## 6. TestFlight before review
 
-Add the processed build to internal TestFlight testing. Verify onboarding, direct shield handoff, speech permission denial/recovery, automatic re-arm, device restart behavior, and protection removal.
+Add the processed build to internal TestFlight testing. Verify onboarding, both ask-again modes, direct shield handoff, speech permission denial/recovery, automatic re-arm, device restart behavior, and protection removal.
 
 ## 7. Submit for review
 

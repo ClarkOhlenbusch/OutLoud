@@ -25,7 +25,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>OutLoud listens only while you complete a spoken intention.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>OutLoud recognizes the intention phrase you choose.</string>
+	<string>OutLoud recognizes the intention phrases you choose.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

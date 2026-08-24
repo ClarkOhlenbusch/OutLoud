@@ -33,16 +33,17 @@ Choose the apps you want to protect and set a short intention. When you try to o
 FEATURES
 
 - Protect apps using Apple's Screen Time controls
-- Choose a phrase that feels personal to you
+- Save several phrases and say any one that feels natural
+- Optionally accept similar acknowledgments using on-device language understanding
 - Complete the pause with a focused, reactive voice screen
 - Return automatically to individually configured apps after speaking
-- Practice your phrase during setup
-- Re-arm protection after every visit with an optional Shortcuts automation
+- Practice your phrases during setup
+- Ask again after every visit or after a 15-, 30-, or 60-minute access window
 - Keep settings and challenge state on your device
 
 PRIVATE BY DESIGN
 
-OutLoud has no accounts, advertisements, analytics, or tracking. App selections are represented by private Apple tokens, and OutLoud does not upload your phrase or speech.
+OutLoud has no accounts, advertisements, analytics, or tracking. App selections are represented by private Apple tokens, and OutLoud does not upload your phrases or speech. Flexible acknowledgment matching uses Apple's on-device Natural Language framework, with no paid AI service.
 
 OutLoud is a mindfulness tool, not a parental-monitoring service. You remain in control of the apps you select and can turn protection off at any time.
 
@@ -78,7 +79,7 @@ Test flow:
 6. OutLoud opens to the voice orb. Speak the displayed phrase.
 7. After confirmation, OutLoud attempts to reopen the mapped destination automatically and provides a return button if the app link fails.
 
-No account or review credentials are required. The optional Shortcuts automation is explained during onboarding but is not required to test the core 15-minute access-window behavior.
+No account or review credentials are required. Onboarding offers a timer-based access window that needs no automation, or an every-visit option with Shortcuts setup instructions.
 
 The Family Controls distribution entitlement must be approved for these identifiers:
 

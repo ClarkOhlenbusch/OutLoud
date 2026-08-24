@@ -11,8 +11,8 @@ OutLoud adds a deliberate pause before distracting apps. Choose the apps you wan
 1. OutLoud uses Apple's Screen Time picker to protect apps selected by the user.
 2. Opening a protected app presents a system-managed OutLoud shield.
 3. Tapping Unlock opens OutLoud's focused voice screen on iOS 26.5 or newer.
-4. Speaking the chosen phrase creates a temporary access window and automatically returns to a configured app.
-5. An optional Shortcuts automation re-arms protection after the user leaves the selected app.
+4. Speaking any saved phrase—or a similar acknowledgment when flexible matching is enabled—creates a temporary access window and automatically returns to a configured app.
+5. Users can be asked again after every visit (with a Shortcuts automation) or after a 15-, 30-, or 60-minute access window.
 
 App identities are represented by opaque Apple tokens. OutLoud has no account, analytics, advertising, tracking, or backend service.
 
@@ -23,6 +23,7 @@ App identities are represented by opaque Apple tokens. OutLoud has no account, a
 - Managed Settings and Managed Settings UI
 - Device Activity
 - Speech and AVFoundation
+- Core ML and Natural Language for optional, on-device acknowledgment matching
 - App Intents for the automatic re-arm shortcut
 - App Group storage shared with three Screen Time extensions
 

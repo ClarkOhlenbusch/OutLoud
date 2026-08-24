@@ -54,6 +54,10 @@ enum ShieldManager {
             OutLoudLog.shortcuts.debug("Re-arm skipped because protection is disabled")
             return
         }
+        guard SharedSettings.askAgainMode == .everyVisit else {
+            OutLoudLog.shortcuts.debug("Re-arm skipped because the timed access window is selected")
+            return
+        }
 
         OutLoudLog.shortcuts.info("Re-arming protection")
         DeviceActivityCenter().stopMonitoring([SharedSettings.relockActivity])

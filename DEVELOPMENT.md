@@ -17,7 +17,7 @@ To see logs from the app and all three Screen Time extensions:
 3. Search for `subsystem:com.clarkohlenbusch.outloud`.
 4. Reproduce the issue.
 
-Logs intentionally omit the spoken phrase, recognized transcript, protected-app tokens, and app identities. Counts and non-sensitive state names are logged publicly so they remain useful when debugging.
+Logs intentionally omit spoken phrases, recognized transcripts, protected-app tokens, and app identities. Counts and non-sensitive state names are logged publicly so they remain useful when debugging.
 
 The shared Xcode scheme enables `IDEPreferLogStreaming=YES` for Run and Test actions. This addresses Xcode's logging-stream timeout suggestion without changing release behavior.
 
@@ -27,7 +27,7 @@ Select a connected iPhone and choose **Product > Test** (`Command-U`) in Xcode. 
 
 The current unit tests cover:
 
-- Phrase normalization, contractions, punctuation, recognition errors, incomplete phrases, and false positives.
+- Phrase collections, normalization, contractions, punctuation, recognition errors, flexible acknowledgments, model loading, safety gates, incomplete phrases, and false positives.
 - Every persisted onboarding step, invalid persisted state, back navigation, and progress count.
 
 The full app and test bundle can be compiled without signing with:
@@ -37,7 +37,21 @@ xcodebuild -project OutLoud.xcodeproj -scheme OutLoud -sdk iphoneos \
   -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build-for-testing
 ```
 
-Apple's Screen Time picker, shields, extension handoff, and speech permissions require a physical device for meaningful end-to-end testing. Those system-owned screens are not good unit-test targets; verify them with the connected-device flow after unit tests pass.
+Apple’s Screen Time picker, shields, extension handoff, and speech permissions require a physical device for meaningful end-to-end testing. Those system-owned screens are not good unit-test targets; verify them with the connected-device flow after unit tests pass.
+
+## Flexible-acknowledgment model
+
+Flexible matching uses a Create ML text classifier built on Apple’s revision-1 BERT contextual embedding. Exact saved phrases still use deterministic matching, and explicit safety rules reject questions, quoted statements, unrelated negative language, and opposite intent before model inference.
+
+The original training sentences and a separate held-out evaluation set live in `ModelTraining`. Retrain and replace the bundled model with:
+
+```sh
+xcrun swift ModelTraining/train-acknowledgement-classifier.swift
+```
+
+The trainer selects a conservative confidence threshold, writes it into the model metadata, and refuses to replace the model unless a held-out threshold reaches at least 85% precision, 20% recall, and a 5% or lower false-positive rate. The production safety gate improves on those raw-model measurements.
+
+Apple distributes the contextual-embedding asset through the operating system. Simulator does not include that downloadable asset, so the model-inference unit test is skipped there; run the full suite on a physical iPhone after the asset is available. Deterministic phrase and safety-gate tests continue to run in Simulator.
 
 ## Xcode launch messages
 

@@ -26,6 +26,26 @@ final class OnboardingStepTests: XCTestCase {
         XCTAssertEqual(OnboardingStep.progressCount, 5)
     }
 
+    func testAskAgainModesHaveStableStoredValues() {
+        XCTAssertEqual(AskAgainMode(rawValue: "everyVisit"), .everyVisit)
+        XCTAssertEqual(AskAgainMode(rawValue: "afterTime"), .afterTime)
+        XCTAssertNil(AskAgainMode(rawValue: "unknown"))
+    }
+
+    func testEveryVisitUsesFifteenMinuteFallbackWindow() {
+        XCTAssertEqual(
+            AskAgainMode.everyVisit.accessWindowDuration(timerDuration: 60 * 60),
+            15 * 60
+        )
+    }
+
+    func testTimerModeUsesSelectedWindow() {
+        XCTAssertEqual(
+            AskAgainMode.afterTime.accessWindowDuration(timerDuration: 30 * 60),
+            30 * 60
+        )
+    }
+
     func testEveryReturnDestinationHasAnAppLinkAndUniversalLink() {
         for destination in ReturnDestination.allCases {
             XCTAssertEqual(destination.launchURLs.count, 2)

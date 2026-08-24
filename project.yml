@@ -29,7 +29,7 @@ targets:
         CFBundleDisplayName: OutLoud
         LSApplicationCategoryType: public.app-category.productivity
         NSMicrophoneUsageDescription: OutLoud listens only while you complete a spoken intention.
-        NSSpeechRecognitionUsageDescription: OutLoud recognizes the intention phrase you choose.
+        NSSpeechRecognitionUsageDescription: OutLoud recognizes the intention phrases you choose.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -133,7 +133,6 @@ targets:
     platform: iOS
     sources:
       - path: Tests
-      - path: Shared/PhraseMatcher.swift
     dependencies:
       - target: OutLoud
     settings:

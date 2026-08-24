@@ -22,8 +22,8 @@ OutLoud guides the user through one item per screen:
 
 1. Approve Screen Time access.
 2. Choose protected apps individually and match their automatic return destinations.
-3. Choose and practice the spoken phrase.
-4. Optionally configure the one-time Shortcuts automation for automatic re-arming.
+3. Choose one or more spoken phrases, optionally enable flexible acknowledgment matching, and practice.
+4. Choose whether OutLoud asks again after a timer or every visit. The every-visit option includes one-time Shortcuts automation instructions.
 5. Turn on protection.
 
 Microphone and Speech Recognition access are requested during the practice. On iOS versions before 26.5, notification access is also needed because a notification is used as the fallback bridge from the shield to OutLoud.

@@ -25,7 +25,7 @@ struct ChallengeView: View {
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                         .foregroundStyle(completed ? .green : .white.opacity(0.7))
 
-                    Text("“\(model.phrase)”")
+                    Text(challengePrompt)
                         .font(.system(size: 24, weight: .semibold, design: .rounded))
                         .multilineTextAlignment(.center)
                         .foregroundStyle(.white)
@@ -121,9 +121,25 @@ struct ChallengeView: View {
     }
 
     private func startListening() {
-        speech.requestAndStart(expectedPhrase: model.phrase) {
+        speech.requestAndStart(
+            expectedPhrases: model.phrases,
+            acceptsSimilarAcknowledgements: model.acceptsSimilarAcknowledgements
+        ) {
             finishChallenge()
         }
+    }
+
+    private var challengePrompt: String {
+        if model.acceptsSimilarAcknowledgements {
+            return "Acknowledge the choice in your own words"
+        }
+        if model.phrases.count == 1 {
+            return "“\(model.phrases[0])”"
+        }
+        let visiblePhrases = model.phrases.prefix(3).map { "“\($0)”" }
+        let remainingCount = model.phrases.count - visiblePhrases.count
+        let remainder = remainingCount > 0 ? "\n+ \(remainingCount) more" : ""
+        return "Say any one:\n" + visiblePhrases.joined(separator: "\n") + remainder
     }
 
     private var isPractice: Bool {

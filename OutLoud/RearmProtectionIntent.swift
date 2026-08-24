@@ -4,7 +4,7 @@ import OSLog
 struct RearmProtectionIntent: AppIntent {
     static let title: LocalizedStringResource = "Re-arm Protection"
     static let description = IntentDescription(
-        "Reapplies OutLoud protection after you leave a protected app."
+        "Reapplies OutLoud protection after you leave a protected app when Every Visit is selected."
     )
 
 #if compiler(>=6.3)

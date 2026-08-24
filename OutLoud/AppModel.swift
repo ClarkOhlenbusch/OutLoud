@@ -9,7 +9,9 @@ import UserNotifications
 final class AppModel: ObservableObject {
     @Published var selection: FamilyActivitySelection
     @Published var phrase: String
+    @Published var acceptsSimilarAcknowledgements: Bool
     @Published var protectionEnabled: Bool
+    @Published var askAgainMode: AskAgainMode
     @Published var gracePeriod: TimeInterval
     @Published var pendingChallenge: PendingChallenge?
     @Published var challengeSessionID: UUID
@@ -22,8 +24,10 @@ final class AppModel: ObservableObject {
 
     init() {
         selection = SharedSettings.selection
-        phrase = SharedSettings.phrase
+        phrase = SharedSettings.phrases.joined(separator: "\n")
+        acceptsSimilarAcknowledgements = SharedSettings.acceptsSimilarAcknowledgements
         protectionEnabled = SharedSettings.protectionEnabled
+        askAgainMode = SharedSettings.askAgainMode
         gracePeriod = SharedSettings.gracePeriod
         pendingChallenge = SharedSettings.pendingChallenge
             ?? (SharedSettings.challengeRequested ? .selection : nil)
@@ -36,6 +40,11 @@ final class AppModel: ObservableObject {
         OutLoudLog.lifecycle.info(
             "Model initialized; onboarding complete: \(self.onboardingCompleted, privacy: .public), protection enabled: \(self.protectionEnabled, privacy: .public), selected count: \(self.selectedItemCount, privacy: .public)"
         )
+        if acceptsSimilarAcknowledgements {
+#if !targetEnvironment(simulator)
+            Task { await FlexibleAcknowledgementMatcher.prepareModelAssets() }
+#endif
+        }
     }
 
     var isDemoMode: Bool {
@@ -47,6 +56,16 @@ final class AppModel: ObservableObject {
     }
 
     var isAuthorized: Bool { isDemoMode || authorizationStatus == .approved }
+
+    var phrases: [String] {
+        PhraseMatcher.phrases(from: phrase)
+    }
+
+    var phraseSummary: String {
+        let savedPhrases = phrases
+        if savedPhrases.count == 1 { return savedPhrases[0] }
+        return "\(savedPhrases.count) phrases"
+    }
 
     var selectedItemCount: Int {
         isDemoMode ? demoSelectedApps.count : selection.selectedItemCount
@@ -102,12 +121,27 @@ final class AppModel: ObservableObject {
     }
 
     func savePhrase() {
-        let trimmed = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        phrase = trimmed.isEmpty ? "I am choosing to spend my time here" : trimmed
-        SharedSettings.phrase = phrase
+        let savedPhrases = phrases.isEmpty
+            ? ["I am choosing to spend my time here"]
+            : phrases
+        phrase = savedPhrases.joined(separator: "\n")
+        SharedSettings.phrases = savedPhrases
         OutLoudLog.challenge.debug(
-            "Saved challenge phrase; character count: \(self.phrase.count, privacy: .public)"
+            "Saved challenge phrases; count: \(savedPhrases.count, privacy: .public)"
         )
+    }
+
+    func setAcceptsSimilarAcknowledgements(_ enabled: Bool) {
+        acceptsSimilarAcknowledgements = enabled
+        SharedSettings.acceptsSimilarAcknowledgements = enabled
+        OutLoudLog.challenge.info(
+            "Flexible acknowledgement matching changed; enabled: \(enabled, privacy: .public)"
+        )
+        if enabled {
+#if !targetEnvironment(simulator)
+            Task { await FlexibleAcknowledgementMatcher.prepareModelAssets() }
+#endif
+        }
     }
 
     func returnDestination(for token: ApplicationToken) -> ReturnDestination? {
@@ -150,6 +184,12 @@ final class AppModel: ObservableObject {
         gracePeriod = seconds
         SharedSettings.gracePeriod = seconds
         OutLoudLog.screenTime.debug("Access window changed; seconds: \(seconds, privacy: .public)")
+    }
+
+    func setAskAgainMode(_ mode: AskAgainMode) {
+        askAgainMode = mode
+        SharedSettings.askAgainMode = mode
+        OutLoudLog.screenTime.info("Ask-again mode changed: \(mode.rawValue, privacy: .public)")
     }
 
     func moveOnboarding(to step: OnboardingStep) {
@@ -215,18 +255,21 @@ final class AppModel: ObservableObject {
 
         let calendar = Calendar.current
         let now = Date()
+        // Every Visit normally re-arms sooner through Shortcuts. Keep the
+        // original 15-minute window as a fallback if that automation is absent.
+        let accessWindowDuration = askAgainMode.accessWindowDuration(timerDuration: gracePeriod)
         let schedule = DeviceActivitySchedule(
             intervalStart: scheduleComponents(for: now.addingTimeInterval(-1), calendar: calendar),
-            intervalEnd: scheduleComponents(for: now.addingTimeInterval(gracePeriod), calendar: calendar),
+            intervalEnd: scheduleComponents(for: now.addingTimeInterval(accessWindowDuration), calendar: calendar),
             repeats: false
         )
 
         do {
             try center.startMonitoring(SharedSettings.relockActivity, during: schedule)
-            SharedSettings.unlockExpiration = now.addingTimeInterval(gracePeriod)
+            SharedSettings.unlockExpiration = now.addingTimeInterval(accessWindowDuration)
             ShieldManager.release(challenge)
             OutLoudLog.screenTime.info(
-                "Access window started; seconds: \(self.gracePeriod, privacy: .public), challenge kind: \(challenge.logName, privacy: .public)"
+                "Access window started; seconds: \(accessWindowDuration, privacy: .public), challenge kind: \(challenge.logName, privacy: .public)"
             )
             return true
         } catch {
