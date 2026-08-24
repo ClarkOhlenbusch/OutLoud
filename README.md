@@ -36,6 +36,38 @@ Prefer exact wording? Add your own phrases and require one of them instead.
 
 After a successful pause, OutLoud unlocks the app temporarily and can send you straight back to it.
 
+## A small model with one careful job
+
+Flexible mode is not a chatbot. It is a compact binary classifier trained to answer one question: **did this person acknowledge that opening the app is avoidable or counterproductive?**
+
+OutLoud uses three layers instead of asking a model to decide everything:
+
+| Layer | What it handles |
+| --- | --- |
+| Deterministic matching | An exact saved phrase, including harmless speech-recognition differences. |
+| Safety policy | Clear acknowledgments are accepted; questions, quoted speech, opposite intent, and necessary-use statements are rejected. |
+| Core ML classifier | Nuanced wording that is relevant but not obvious enough for a rule. |
+
+That final layer is a Create ML text classifier built with transfer learning from Apple's revision-1 BERT contextual embedding. The classifier bundled with OutLoud is only **1.3 MB**; Apple supplies the larger language embedding through iOS, and inference stays on-device.
+
+### Current model
+
+| Training corpus | Held-out corpus | Threshold | Precision | Recall | False-positive rate |
+| :---: | :---: | :---: | :---: | :---: | :---: |
+| 392 | 80 | 0.88 | 88.2% | 50.0% | 4.0% |
+
+These are raw classifier results on the separate held-out set. The runtime safety policy is applied before inference and rejects known false-positive patterns on top of that.
+
+The bias toward precision is intentional: asking someone to try again is less harmful than silently removing the pause. During training, the script searches confidence thresholds and refuses to replace the shipping model unless one reaches at least 85% precision, 20% recall, and a 5% or lower false-positive rate.
+
+The original training sentences, held-out evaluation set, generated model, and complete training script are all versioned in this repository. Retraining is one command:
+
+```sh
+xcrun swift ModelTraining/train-acknowledgement-classifier.swift
+```
+
+Explore the [`ModelTraining`](ModelTraining/) directory or read the runtime matcher in [`FlexibleAcknowledgementMatcher.swift`](OutLoud/FlexibleAcknowledgementMatcher.swift).
+
 ## Private by design
 
 > **No account. No analytics. No advertising. No tracking. No backend.**
@@ -51,8 +83,6 @@ Read the [privacy policy](docs/privacy.md) or inspect the bundled [privacy manif
 3. Tap the shield to open the focused voice pause.
 4. Speak naturally or use a saved phrase.
 5. Continue with a temporary access window, then pause again on the next visit or when the timer ends.
-
-Flexible matching uses a bundled Core ML classifier with Apple's contextual language embedding. The training data, held-out evaluation set, and reproducible trainer are included in [`ModelTraining`](ModelTraining/).
 
 ## Run on iPhone
 
