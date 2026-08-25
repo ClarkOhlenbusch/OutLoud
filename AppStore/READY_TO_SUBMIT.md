@@ -10,7 +10,7 @@ Prepared August 25, 2026.
 - Uploaded build: `1.0.0 (2)`
 - Build status: processed and available through **Add Build**
 - Distribution entitlements: approved for the app and all three extensions
-- Screenshots: four App Store-valid 6.9-inch JPEGs in [Screenshots](Screenshots)
+- Screenshots: four App Store-valid 6.5-inch JPEGs in [Screenshots-6.5](Screenshots-6.5)
 
 ## 1. Match the App Store version to the binary
 
@@ -89,14 +89,14 @@ Return to **Distribution > iOS App > 1.0.0 Prepare for Submission**.
 
 ### Screenshots
 
-Click **View All Sizes in Media Manager**, select the **iPhone 6.9-inch Display** slot, and upload these files in this order:
+In the visible **iPhone 6.5-inch Display** slot, upload these files in this order:
 
-1. [01-welcome.jpg](Screenshots/01-welcome.jpg)
-2. [02-choose-apps.jpg](Screenshots/02-choose-apps.jpg)
-3. [03-choose-response.jpg](Screenshots/03-choose-response.jpg)
-4. [04-ask-again.jpg](Screenshots/04-ask-again.jpg)
+1. [01-welcome.jpg](Screenshots-6.5/01-welcome.jpg)
+2. [02-choose-apps.jpg](Screenshots-6.5/02-choose-apps.jpg)
+3. [03-choose-response.jpg](Screenshots-6.5/03-choose-response.jpg)
+4. [04-ask-again.jpg](Screenshots-6.5/04-ask-again.jpg)
 
-Each file is `1320 × 2868`, JPEG, and has no alpha channel. Do not upload them into the 6.5-inch slot, which lists different dimensions.
+Each file is `1284 × 2778`, JPEG, and has no alpha channel. They match the dimensions requested by the visible 6.5-inch slot.
 
 ### Promotional text
 
