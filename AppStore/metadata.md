@@ -63,7 +63,7 @@ Select **No, we do not collect data from this app**. The repository contains no 
 
 ## Age rating draft
 
-Answer **None** for objectionable-content categories unless App Store Connect introduces a category that specifically describes user-configurable text. Expected rating: 4+.
+Under Apple's current questionnaire, answer **Yes/Present** for **Health or Wellness Topics** because OutLoud provides a digital-wellness and self-care experience. Answer **No/None** for parental controls, unrestricted web access, broadly distributed user-generated content, social features, advertising, medical or treatment information, profanity, violence, sexual content, and chance-based activities. Expected rating: 9+.
 
 ## Review notes
 

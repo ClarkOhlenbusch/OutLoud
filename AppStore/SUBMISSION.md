@@ -1,5 +1,7 @@
 # App Store submission checklist
 
+For the prepared build, exact copy-and-paste values, screenshot order, and current App Store Connect flow, use [READY_TO_SUBMIT.md](READY_TO_SUBMIT.md).
+
 ## 1. Apple-managed prerequisite
 
 The Account Holder must request **Family Controls (Distribution)** for the main app and each of its three Screen Time extension App IDs:

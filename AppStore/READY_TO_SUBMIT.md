@@ -1,0 +1,211 @@
+# OutLoud App Store Connect submission packet
+
+Prepared August 25, 2026.
+
+## Current release status
+
+- App Store Connect app: [OutLoud: Mindful App Pause](https://appstoreconnect.apple.com/apps/6804832298/distribution/ios/version/inflight)
+- Apple app ID: `6804832298`
+- Bundle ID: `com.clarkohlenbusch.outloud`
+- Uploaded build: `1.0.0 (2)`
+- Build status: processed and available through **Add Build**
+- Distribution entitlements: approved for the app and all three extensions
+- Screenshots: four App Store-valid 6.9-inch JPEGs in [Screenshots](Screenshots)
+
+## 1. Match the App Store version to the binary
+
+On **Distribution > iOS App > 1.0 Prepare for Submission**, change the **Version** field from `1.0` to:
+
+```text
+1.0.0
+```
+
+Click **Save** before selecting the build. The uploaded binary's `CFBundleShortVersionString` is `1.0.0`, and Apple says the App Store Connect version should match it.
+
+## 2. Complete App Information
+
+Open **General > App Information** and enter or confirm:
+
+| Field | Value |
+| --- | --- |
+| Name | `OutLoud: Mindful App Pause` |
+| Subtitle | `Pause. Speak. Choose.` |
+| Primary language | English (U.S.) |
+| Primary category | Productivity |
+| Secondary category | Health & Fitness |
+| Content rights | No, the app does not contain, show, or distribute third-party content |
+| Made for Kids | No |
+
+For **Age Rating**, use these answers:
+
+- Parental controls: No. OutLoud is a self-directed mindfulness tool, not a parent/guardian monitoring tool.
+- Age assurance: No.
+- Unrestricted web access: No. The app has no embedded browser.
+- User-generated content: No. User phrases stay local and are not distributed to anyone.
+- Social media: No.
+- Messaging and chat: No.
+- Advertising: No.
+- Profanity or crude humor: None.
+- Horror or fear themes: None.
+- Alcohol, tobacco, or drug references: None.
+- Medical or treatment information: None.
+- Health or wellness topics: Yes/Present. OutLoud gives a digital-wellness and self-care experience.
+- Sexual or suggestive content: None.
+- Violence and weapons: None.
+- Gambling, simulated gambling, contests, and loot boxes: None.
+
+The expected result under Apple's current rating system is **9+**. Save the questionnaire.
+
+## 3. Complete App Privacy
+
+Open **General > App Privacy**.
+
+1. Add this privacy policy URL:
+
+   ```text
+   https://clarkohlenbusch.github.io/OutLoud/privacy/
+   ```
+
+2. For data collection, select **No, we do not collect data from this app**.
+3. Click **Save**, then **Publish**, and confirm **Publish**.
+
+The app has no backend, accounts, analytics, advertising, or tracking SDK. Phrases, app-selection tokens, and challenge state stay on device. Speech recognition explicitly requires Apple's on-device recognition.
+
+## 4. Set pricing and availability
+
+Open **Monetization > Pricing and Availability**.
+
+- Price: **Free**
+- Distribution: **Public**
+- Countries or regions: choose all countries or regions unless you personally want a narrower launch
+- Mac with Apple silicon: do not enable for this release; the iPhone app has not been tested there
+- Apple Vision Pro: do not enable for this release; the iPhone app has not been tested there
+
+If Apple asks for EU Digital Services Act trader status, answer based on your actual legal/business status. Do not guess—this is an account-holder legal declaration.
+
+## 5. Upload screenshots and version metadata
+
+Return to **Distribution > iOS App > 1.0.0 Prepare for Submission**.
+
+### Screenshots
+
+Click **View All Sizes in Media Manager**, select the **iPhone 6.9-inch Display** slot, and upload these files in this order:
+
+1. [01-welcome.jpg](Screenshots/01-welcome.jpg)
+2. [02-choose-apps.jpg](Screenshots/02-choose-apps.jpg)
+3. [03-choose-response.jpg](Screenshots/03-choose-response.jpg)
+4. [04-ask-again.jpg](Screenshots/04-ask-again.jpg)
+
+Each file is `1320 × 2868`, JPEG, and has no alpha channel. Do not upload them into the 6.5-inch slot, which lists different dimensions.
+
+### Promotional text
+
+```text
+Put one intentional moment between you and the apps you open on autopilot.
+```
+
+### Description
+
+```text
+OutLoud puts a deliberate pause between you and distracting apps.
+
+Choose the apps you want to protect and set a short intention. When you try to open one, OutLoud asks you to say that intention aloud before continuing. The responsive voice orb gives immediate feedback while you speak, turning a mindless tap into a conscious choice.
+
+FEATURES
+
+- Protect apps using Apple's Screen Time controls
+- Save several phrases and say any one that feels natural
+- Optionally accept similar acknowledgments using on-device language understanding
+- Complete the pause with a focused, reactive voice screen
+- Return automatically to individually configured apps after speaking
+- Practice your phrases during setup
+- Ask again after every visit or after a 15-, 30-, or 60-minute access window
+- Keep settings and challenge state on your device
+
+PRIVATE BY DESIGN
+
+OutLoud has no accounts, advertisements, analytics, or tracking. App selections are represented by private Apple tokens, and OutLoud does not upload your phrases or speech. Flexible acknowledgment matching uses Apple's on-device Natural Language framework, with no paid AI service.
+
+OutLoud is a mindfulness tool, not a parental-monitoring service. You remain in control of the apps you select and can turn protection off at any time.
+```
+
+### Keywords
+
+```text
+screen time,mindfulness,focus,digital wellbeing,habits,social media,app blocker,intention
+```
+
+### URLs and remaining fields
+
+| Field | Value |
+| --- | --- |
+| Support URL | `https://clarkohlenbusch.github.io/OutLoud/support/` |
+| Marketing URL | `https://clarkohlenbusch.github.io/OutLoud/` |
+| Version | `1.0.0` |
+| Copyright | `2026 Clark Ohlenbusch` |
+| Routing App Coverage File | Leave empty |
+
+## 6. Select the build
+
+In the **Build** section, click **Add Build**, select `1.0.0 (2)`, and click **Done**.
+
+If App Store Connect asks about encryption, the app does not implement proprietary or standard encryption algorithms. It only invokes ordinary system-handled URLs when returning to supported apps. Choose the answer equivalent to **None of the algorithms mentioned above / only encryption within Apple's operating system**, which requires no export documentation.
+
+Click **Save**.
+
+## 7. Enter App Review information
+
+Leave **Sign-in required** turned off. There is no account or login.
+
+| Field | Value |
+| --- | --- |
+| First name | `Clark` |
+| Last name | `Ohlenbusch` |
+| Phone number | **Enter your current phone number** |
+| Email | `clark.ohlenbusch@gmail.com` |
+| Attachment | Leave empty |
+
+Paste these review notes:
+
+```text
+OutLoud is a self-directed mindfulness app that uses Apple's Family Controls, Managed Settings, Device Activity, Speech, AVFoundation, and App Intents frameworks. No account or review credentials are required.
+
+Suggested review flow:
+1. Launch OutLoud and approve individual Screen Time authorization.
+2. In Apple's Family Activity picker, select an installed app individually.
+3. Keep or edit the default intention, complete voice practice, and choose a timer-based access window.
+4. Turn protection on.
+5. Open the selected app and tap Unlock on the system shield.
+6. OutLoud opens to the voice orb. Speak the displayed phrase.
+7. After confirmation, OutLoud removes the shield for the selected access window and provides a return button.
+
+The timer-based access-window option needs no Shortcuts automation. The every-visit option includes separate Shortcuts setup instructions.
+
+OutLoud has no backend, accounts, analytics, advertising, or tracking. App selections use private Apple tokens. User phrases, speech, and challenge state are not uploaded. Speech recognition explicitly requires on-device recognition.
+
+Family Controls distribution approval is assigned to the main app and all three Screen Time extensions.
+```
+
+Under **App Store Version Release**, select **Automatically release this version** unless you specifically want to hold the approved release for a manual launch.
+
+Click **Save**.
+
+## 8. Optional sections to skip for version 1.0.0
+
+- App previews
+- Routing coverage file
+- App Clip
+- iMessage App
+- In-app purchases and subscriptions
+- Game Center
+- App Review attachment
+- Accessibility Nutrition Labels, until the app has been audited against Apple's complete-task criteria
+
+## 9. Submit
+
+1. On the version page, click **Add for Review**.
+2. Create a new submission if prompted and add version `1.0.0`.
+3. Resolve any red validation messages by returning to the named section.
+4. Click **Submit to App Review** and confirm.
+
+If Apple shows a validation message that is not covered above, copy its exact text before changing anything.
