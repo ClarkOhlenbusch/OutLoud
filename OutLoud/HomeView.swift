@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var showingPhraseEditor = false
     @State private var showingAskAgainSetup = false
     @State private var showingReturnSetup = false
+    @State private var showingUsageReminderSetup = false
 
     var body: some View {
         NavigationStack {
@@ -54,6 +55,10 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showingReturnSetup) {
                 AutoReturnSetupView()
+                    .environmentObject(model)
+            }
+            .sheet(isPresented: $showingUsageReminderSetup) {
+                UsageReminderSetupView()
                     .environmentObject(model)
             }
             .onChange(of: model.selection) { _, _ in model.saveSelection() }
@@ -154,6 +159,16 @@ struct HomeView: View {
             ) {
                 showingAskAgainSetup = true
             }
+
+            Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
+
+            SettingsRow(
+                icon: "bell.badge.fill",
+                title: "Usage reminders",
+                value: usageReminderSummary
+            ) {
+                showingUsageReminderSetup = true
+            }
         }
         .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
@@ -211,6 +226,10 @@ struct HomeView: View {
         }
     }
 
+    private var usageReminderSummary: String {
+        model.usageRemindersEnabled ? model.usageReminderInterval.summary : "Off"
+    }
+
     private var errorBinding: Binding<Bool> {
         Binding(
             get: { model.errorMessage != nil },
@@ -226,6 +245,8 @@ struct OnboardingView: View {
     @State private var showingRearmSetup = false
     @State private var showingReturnSetup = false
     @State private var viewedRearmSetup = false
+    @State private var onboardingReminderInterval: UsageReminderInterval = .fiveMinutes
+    @State private var isEnablingUsageReminders = false
     @FocusState private var phraseIsFocused: Bool
 
     private var step: OnboardingStep { model.onboardingStep }
@@ -262,6 +283,9 @@ struct OnboardingView: View {
             Button("OK", role: .cancel) { model.errorMessage = nil }
         } message: {
             Text(model.errorMessage ?? "Please try again.")
+        }
+        .onAppear {
+            onboardingReminderInterval = model.usageReminderInterval
         }
         .preferredColorScheme(.dark)
     }
@@ -301,6 +325,7 @@ struct OnboardingView: View {
         case .apps: appsPage
         case .phrase: phrasePage
         case .everyVisit: everyVisitPage
+        case .usageReminders: usageRemindersPage
         case .ready: readyPage
         }
     }
@@ -480,7 +505,7 @@ struct OnboardingView: View {
             VStack(spacing: 10) {
                 primaryButton(onboardingTimingButtonTitle) {
                     if model.askAgainMode == .afterTime || viewedRearmSetup {
-                        move(to: .ready)
+                        move(to: .usageReminders)
                     } else {
                         showingRearmSetup = true
                     }
@@ -491,7 +516,7 @@ struct OnboardingView: View {
                         if viewedRearmSetup {
                             showingRearmSetup = true
                         } else {
-                            move(to: .ready)
+                            move(to: .usageReminders)
                         }
                     }
                     .font(.subheadline.weight(.semibold))
@@ -507,16 +532,86 @@ struct OnboardingView: View {
         return "Set up every visit"
     }
 
+    private var usageRemindersPage: some View {
+        OnboardingPage(
+            icon: "bell.badge.fill",
+            title: "Interrupt the scroll",
+            message: "Get a bold reminder while you’re using any app you selected—even when Protection is off."
+        ) {
+            VStack(spacing: 18) {
+                UsageReminderIntervalPicker(selection: onboardingReminderInterval) { interval in
+                    onboardingReminderInterval = interval
+                }
+
+                UsageReminderPreview(
+                    elapsedMinutes: onboardingReminderInterval.rawValue,
+                    appName: "TikTok",
+                    compact: true
+                )
+
+                Label(
+                    "Time counts only while each app is open and continues across visits.",
+                    systemImage: "clock.arrow.circlepath"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            }
+        } action: {
+            VStack(spacing: 8) {
+                primaryButton(isEnablingUsageReminders ? "Turning on…" : "Turn on reminders") {
+                    Task { await enableOnboardingUsageReminders() }
+                }
+                .disabled(isEnablingUsageReminders)
+                .opacity(isEnablingUsageReminders ? 0.65 : 1)
+
+                Button("Not now") {
+                    model.turnOffUsageReminders()
+                    move(to: .ready)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.58))
+                .frame(height: 40)
+                .disabled(isEnablingUsageReminders)
+            }
+        }
+    }
+
+    @MainActor
+    private func enableOnboardingUsageReminders() async {
+        isEnablingUsageReminders = true
+        defer { isEnablingUsageReminders = false }
+
+        await model.selectUsageReminderInterval(onboardingReminderInterval)
+        if model.usageRemindersEnabled,
+           model.usageReminderInterval == onboardingReminderInterval {
+            move(to: .ready)
+        }
+    }
+
     private var readyPage: some View {
         OnboardingPage(
             icon: "checkmark",
             title: "You’re ready",
-            message: "OutLoud will pause before your selected apps open."
+            message: model.usageRemindersEnabled
+                ? "Your reminders are on. Add Protection for an extra pause before selected apps open."
+                : "OutLoud will pause before your selected apps open."
         ) {
             EmptyView()
         } action: {
-            primaryButton("Turn on protection") {
-                model.finishOnboarding()
+            VStack(spacing: 8) {
+                primaryButton("Turn on protection") {
+                    model.finishOnboarding()
+                }
+
+                if model.usageRemindersEnabled {
+                    Button("Use reminders only") {
+                        model.finishOnboarding(enableProtection: false)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white.opacity(0.58))
+                    .frame(height: 40)
+                }
             }
         }
     }
@@ -941,6 +1036,201 @@ private struct AccessWindowPicker: View {
             .pickerStyle(.segmented)
         }
         .padding(.top, 4)
+    }
+}
+
+private struct UsageReminderSetupView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                OutLoudBackground()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Interrupt the scroll")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                            Text("Choose how often OutLoud should interrupt you in any app selected under Apps. Reminders work whether protection is on or off.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        if model.usageRemindersEnabled {
+                            Label(
+                                "Always on · \(model.usageReminderInterval.summary)",
+                                systemImage: "checkmark.circle.fill"
+                            )
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(outLoudAccent)
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 8)
+                            .background(outLoudAccent.opacity(0.1), in: Capsule())
+                        }
+
+                        VStack(alignment: .leading, spacing: 11) {
+                            Text("Notify me every")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+
+                            UsageReminderIntervalPicker(
+                                selection: model.usageRemindersEnabled
+                                    ? model.usageReminderInterval
+                                    : nil
+                            ) { interval in
+                                Task { await model.selectUsageReminderInterval(interval) }
+                            }
+                        }
+
+                        UsageReminderPreview(
+                            elapsedMinutes: model.usageReminderInterval.rawValue,
+                            appName: "TikTok"
+                        )
+
+                        Label(
+                            "Time counts only while each selected app is frontmost, continues across visits, and resets daily. Notification delivery can be affected by Focus and system settings.",
+                            systemImage: "info.circle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        if model.usageRemindersEnabled {
+                            Button("Turn off usage reminders") {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    model.turnOffUsageReminders()
+                                }
+                            }
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.38))
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 12)
+                        }
+                    }
+                    .padding(20)
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Usage reminders")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .alert("Notifications unavailable", isPresented: errorBinding) {
+                Button("OK", role: .cancel) { model.errorMessage = nil }
+            } message: {
+                Text(model.errorMessage ?? "Allow notifications for OutLoud in Settings.")
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(
+            get: { model.errorMessage != nil },
+            set: { if !$0 { model.errorMessage = nil } }
+        )
+    }
+}
+
+private struct UsageReminderPreview: View {
+    let elapsedMinutes: Int
+    let appName: String
+    var compact = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !compact {
+                Text("PREVIEW")
+                    .font(.caption2.weight(.black))
+                    .tracking(1.2)
+                    .foregroundStyle(outLoudAccent)
+            }
+
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "bell.badge.fill")
+                    .font(.system(size: compact ? 17 : 20, weight: .bold))
+                    .foregroundStyle(.black)
+                    .frame(width: compact ? 36 : 40, height: compact ? 36 : 40)
+                    .background(outLoudAccent, in: RoundedRectangle(cornerRadius: 10))
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(UsageReminderNotification.title(
+                        elapsedMinutes: elapsedMinutes,
+                        appName: appName
+                    ))
+                    .font(.system(
+                        size: compact ? 15 : 17,
+                        weight: .black,
+                        design: .rounded
+                    ))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    if !compact {
+                        Text(UsageReminderNotification.body)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(compact ? 14 : 17)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(outLoudAccent.opacity(0.34), lineWidth: 1)
+        }
+    }
+}
+
+private struct UsageReminderIntervalPicker: View {
+    let selection: UsageReminderInterval?
+    let select: (UsageReminderInterval) -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(UsageReminderInterval.allCases) { interval in
+                intervalButton(interval)
+            }
+        }
+    }
+
+    private func intervalButton(_ interval: UsageReminderInterval) -> some View {
+        let isSelected = selection == interval
+
+        return Button {
+            select(interval)
+        } label: {
+            VStack(spacing: 3) {
+                Text("\(interval.rawValue)")
+                    .font(.subheadline.weight(.bold))
+                Text(interval.rawValue == 1 ? "minute" : "minutes")
+                    .font(.caption2.weight(.medium))
+                    .opacity(0.72)
+            }
+            .foregroundStyle(isSelected ? .black : .white.opacity(0.72))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(
+                isSelected ? AnyShapeStyle(outLoudAccent) : AnyShapeStyle(.white.opacity(0.07)),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(
+                        isSelected ? outLoudAccent : .white.opacity(0.08),
+                        lineWidth: 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 

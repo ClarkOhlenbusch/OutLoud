@@ -36,6 +36,9 @@ enum SharedSettings {
         static let onboardingCompleted = "onboardingCompleted"
         static let onboardingStep = "onboardingStep"
         static let returnMappings = "returnMappings"
+        static let usageRemindersEnabled = "usageRemindersEnabled"
+        static let usageReminderIntervalMinutes = "usageReminderIntervalMinutes"
+        static let usageReminderTargets = "usageReminderTargets"
     }
 
     static var defaults: UserDefaults {
@@ -225,6 +228,29 @@ enum SharedSettings {
         }
     }
 
+    static var usageRemindersEnabled: Bool {
+        get { defaults.bool(forKey: Key.usageRemindersEnabled) }
+        set { defaults.set(newValue, forKey: Key.usageRemindersEnabled) }
+    }
+
+    static var usageReminderInterval: UsageReminderInterval {
+        get {
+            let storedValue = defaults.integer(forKey: Key.usageReminderIntervalMinutes)
+            return UsageReminderInterval(rawValue: storedValue) ?? .fiveMinutes
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.usageReminderIntervalMinutes) }
+    }
+
+    static var usageReminderTargets: [UsageReminderTarget] {
+        get {
+            guard let data = defaults.data(forKey: Key.usageReminderTargets) else { return [] }
+            return (try? JSONDecoder().decode([UsageReminderTarget].self, from: data)) ?? []
+        }
+        set {
+            defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.usageReminderTargets)
+        }
+    }
+
     private static var pendingChallengeURL: URL? {
         FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
@@ -241,6 +267,258 @@ enum AskAgainMode: String {
         case .everyVisit: 15 * 60
         case .afterTime: timerDuration
         }
+    }
+}
+
+enum UsageReminderInterval: Int, CaseIterable, Identifiable {
+    case oneMinute = 1
+    case fiveMinutes = 5
+    case tenMinutes = 10
+
+    var id: Int { rawValue }
+
+    var title: String {
+        rawValue == 1 ? "1 min" : "\(rawValue) min"
+    }
+
+    var summary: String {
+        rawValue == 1 ? "Every minute" : "Every \(rawValue) min"
+    }
+}
+
+enum UsageReminderEvent {
+    private static let prefix = "outloud.usage-reminder."
+
+    static func name(for elapsedMinutes: Int) -> DeviceActivityEvent.Name {
+        DeviceActivityEvent.Name("\(prefix)\(elapsedMinutes)")
+    }
+
+    static func elapsedMinutes(from name: DeviceActivityEvent.Name) -> Int? {
+        guard name.rawValue.hasPrefix(prefix) else { return nil }
+        return Int(name.rawValue.dropFirst(prefix.count))
+    }
+}
+
+struct UsageReminderTarget: Codable, Equatable {
+    let id: UUID
+    var challenge: PendingChallenge
+    var appName: String
+    var elapsedMinutes: Int
+    var generation: Int
+    var dayStarted: Date
+
+    var activityName: DeviceActivityName {
+        UsageReminderActivity.name(targetID: id, generation: generation)
+    }
+}
+
+enum UsageReminderActivity {
+    private static let prefix = "outloud.usage-reminder."
+
+    static func name(targetID: UUID, generation: Int) -> DeviceActivityName {
+        DeviceActivityName("\(prefix)\(targetID.uuidString).\(generation)")
+    }
+
+    static func isUsageReminder(_ name: DeviceActivityName) -> Bool {
+        name.rawValue.hasPrefix(prefix)
+    }
+}
+
+enum UsageReminderManager {
+    static var schedule: DeviceActivitySchedule {
+        DeviceActivitySchedule(
+            intervalStart: DateComponents(hour: 0, minute: 0, second: 0),
+            intervalEnd: DateComponents(hour: 23, minute: 59, second: 59),
+            repeats: true
+        )
+    }
+
+    static func refreshMonitoring() throws {
+        stopMonitoring()
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let previousTargets = SharedSettings.usageReminderTargets
+        let targets = selectedChallenges().map { challenge in
+            let previous = previousTargets.first { $0.challenge == challenge }
+            return UsageReminderTarget(
+                id: previous?.id ?? UUID(),
+                challenge: challenge,
+                appName: appName(for: challenge),
+                elapsedMinutes: 0,
+                generation: (previous?.generation ?? -1) + 1,
+                dayStarted: today
+            )
+        }
+        SharedSettings.usageReminderTargets = targets
+
+        do {
+            for target in targets {
+                try startMonitoring(target)
+            }
+        } catch {
+            stopMonitoring()
+            SharedSettings.usageReminderTargets = []
+            throw error
+        }
+    }
+
+    static func ensureMonitoring() throws {
+        guard SharedSettings.usageRemindersEnabled else {
+            stopMonitoring()
+            return
+        }
+
+        let center = DeviceActivityCenter()
+        let activeNames = Set(center.activities)
+        if SharedSettings.usageReminderTargets.isEmpty {
+            try refreshMonitoring()
+            return
+        }
+
+        for target in SharedSettings.usageReminderTargets
+        where !activeNames.contains(target.activityName) {
+            try startMonitoring(target)
+        }
+    }
+
+    static func stopMonitoring() {
+        let center = DeviceActivityCenter()
+        let names = Set(
+            center.activities.filter(UsageReminderActivity.isUsageReminder)
+                + SharedSettings.usageReminderTargets.map(\.activityName)
+        )
+        if !names.isEmpty {
+            center.stopMonitoring(Array(names))
+        }
+    }
+
+    static func target(for activity: DeviceActivityName) -> UsageReminderTarget? {
+        SharedSettings.usageReminderTargets.first { $0.activityName == activity }
+    }
+
+    @discardableResult
+    static func advance(
+        activity: DeviceActivityName,
+        elapsedMinutes: Int
+    ) throws -> UsageReminderTarget? {
+        guard SharedSettings.usageRemindersEnabled else { return nil }
+        var targets = SharedSettings.usageReminderTargets
+        guard let index = targets.firstIndex(where: { $0.activityName == activity }) else {
+            return nil
+        }
+
+        let expectedMinutes = targets[index].elapsedMinutes
+            + SharedSettings.usageReminderInterval.rawValue
+        guard elapsedMinutes == expectedMinutes else { return nil }
+
+        let previousActivity = targets[index].activityName
+        targets[index].elapsedMinutes = elapsedMinutes
+        targets[index].generation += 1
+        SharedSettings.usageReminderTargets = targets
+
+        DeviceActivityCenter().stopMonitoring([previousActivity])
+        try startMonitoring(targets[index])
+        return targets[index]
+    }
+
+    static func resetForNewDayIfNeeded(activity: DeviceActivityName) throws {
+        guard SharedSettings.usageRemindersEnabled else { return }
+        var targets = SharedSettings.usageReminderTargets
+        guard let index = targets.firstIndex(where: { $0.activityName == activity }) else {
+            return
+        }
+
+        let today = Calendar.current.startOfDay(for: Date())
+        guard targets[index].dayStarted < today else { return }
+
+        let previousActivity = targets[index].activityName
+        targets[index].elapsedMinutes = 0
+        targets[index].generation += 1
+        targets[index].dayStarted = today
+        SharedSettings.usageReminderTargets = targets
+
+        DeviceActivityCenter().stopMonitoring([previousActivity])
+        try startMonitoring(targets[index])
+    }
+
+    private static func startMonitoring(_ target: UsageReminderTarget) throws {
+        let interval = SharedSettings.usageReminderInterval.rawValue
+        let nextElapsedMinutes = target.elapsedMinutes + interval
+        let event: DeviceActivityEvent
+
+        switch target.challenge {
+        case .application(let token):
+            event = makeEvent(applications: [token], thresholdMinutes: interval)
+        case .category(let token):
+            event = makeEvent(categories: [token], thresholdMinutes: interval)
+        case .webDomain(let token):
+            event = makeEvent(webDomains: [token], thresholdMinutes: interval)
+        case .selection, .practice:
+            return
+        }
+
+        try DeviceActivityCenter().startMonitoring(
+            target.activityName,
+            during: schedule,
+            events: [UsageReminderEvent.name(for: nextElapsedMinutes): event]
+        )
+    }
+
+    private static func makeEvent(
+        applications: Set<ApplicationToken> = [],
+        categories: Set<ActivityCategoryToken> = [],
+        webDomains: Set<WebDomainToken> = [],
+        thresholdMinutes: Int
+    ) -> DeviceActivityEvent {
+        if #available(iOS 17.4, *) {
+            return DeviceActivityEvent(
+                applications: applications,
+                categories: categories,
+                webDomains: webDomains,
+                threshold: DateComponents(minute: thresholdMinutes),
+                includesPastActivity: false
+            )
+        }
+        return DeviceActivityEvent(
+            applications: applications,
+            categories: categories,
+            webDomains: webDomains,
+            threshold: DateComponents(minute: thresholdMinutes)
+        )
+    }
+
+    private static func selectedChallenges() -> [PendingChallenge] {
+        let selection = SharedSettings.selection
+        return selection.applicationTokens.map(PendingChallenge.application)
+            + selection.categoryTokens.map(PendingChallenge.category)
+            + selection.webDomainTokens.map(PendingChallenge.webDomain)
+    }
+
+    private static func appName(for challenge: PendingChallenge) -> String {
+        switch challenge {
+        case .application(let token):
+            return SharedSettings.returnMappings
+                .first { $0.applicationToken == token }?
+                .destination.displayName ?? "this app"
+        case .category:
+            return "selected apps"
+        case .webDomain:
+            return "this website"
+        case .selection:
+            return "your selected apps"
+        case .practice:
+            return "this app"
+        }
+    }
+}
+
+enum UsageReminderNotification {
+    static let identifier = "outloud.usage-reminder"
+    static let body = "You asked OutLoud to interrupt you. Close it now."
+
+    static func title(elapsedMinutes: Int, appName: String) -> String {
+        let duration = elapsedMinutes == 1 ? "1 MINUTE" : "\(elapsedMinutes) MINUTES"
+        return "YOU HAVE SPENT \(duration) ON \(appName.uppercased())"
     }
 }
 

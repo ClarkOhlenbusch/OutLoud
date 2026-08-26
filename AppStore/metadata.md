@@ -39,6 +39,7 @@ FEATURES
 - Return automatically to individually configured apps after speaking
 - Practice your phrases during setup
 - Ask again after every visit or after a 15-, 30-, or 60-minute access window
+- Keep strong reminders running every 1, 5, or 10 minutes in each selected app, even with protection off
 - Keep settings and challenge state on your device
 
 PRIVATE BY DESIGN
@@ -74,10 +75,11 @@ Test flow:
 1. Launch OutLoud and approve individual Screen Time authorization.
 2. Select an installed app individually in Apple's Family Activity picker and match it to a supported automatic return destination.
 3. Keep or edit the default intention and complete the voice practice.
-4. Turn protection on.
-5. Open the selected app and tap **Unlock** on the shield.
-6. OutLoud opens to the voice orb. Speak the displayed phrase.
-7. After confirmation, OutLoud attempts to reopen the mapped destination automatically and provides a return button if the app link fails.
+4. Choose a usage-reminder interval or select **Not now**.
+5. Turn protection on. If reminders are enabled, onboarding also offers a reminders-only path.
+6. Open the selected app and tap **Unlock** on the shield.
+7. OutLoud opens to the voice orb. Speak the displayed phrase.
+8. After confirmation, OutLoud attempts to reopen the mapped destination automatically and provides a return button if the app link fails.
 
 No account or review credentials are required. Onboarding offers a timer-based access window that needs no automation, or an every-visit option with Shortcuts setup instructions.
 

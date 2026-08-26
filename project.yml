@@ -9,7 +9,7 @@ settings:
     SWIFT_VERSION: "5.0"
     DEVELOPMENT_TEAM: 575X4F2KCC
     CODE_SIGN_STYLE: Automatic
-    CURRENT_PROJECT_VERSION: 2
+    CURRENT_PROJECT_VERSION: 3
     MARKETING_VERSION: 1.0.0
     TARGETED_DEVICE_FAMILY: "1"
     GENERATE_INFOPLIST_FILE: YES
@@ -22,6 +22,8 @@ targets:
         com.apple.ApplicationGroups.iOS:
           enabled: 1
         com.apple.FamilyControls:
+          enabled: 1
+        com.apple.UserNotifications.time-sensitive:
           enabled: 1
     info:
       path: Configuration/OutLoud-Info.plist
@@ -125,11 +127,13 @@ targets:
     sources:
       - path: Extensions/DeviceActivityMonitor
       - path: Shared
+      - path: OutLoud/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.clarkohlenbusch.outloud.device-activity-monitor
         PRODUCT_NAME: OutLoudDeviceActivityMonitor
         CODE_SIGN_ENTITLEMENTS: Configuration/DeviceActivityMonitor.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
 
   OutLoudTests:
     type: bundle.unit-test

@@ -19,6 +19,8 @@ final class AppModel: ObservableObject {
     @Published var onboardingCompleted: Bool
     @Published var onboardingStep: OnboardingStep
     @Published var returnMappings: [ApplicationReturnMapping]
+    @Published var usageRemindersEnabled: Bool
+    @Published var usageReminderInterval: UsageReminderInterval
     @Published var errorMessage: String?
     @Published var demoSelectedApps: Set<String> = ["Instagram", "TikTok"]
 
@@ -36,6 +38,8 @@ final class AppModel: ObservableObject {
         onboardingCompleted = SharedSettings.onboardingCompleted
         onboardingStep = OnboardingStep(storedValue: SharedSettings.onboardingStep)
         returnMappings = SharedSettings.returnMappings
+        usageRemindersEnabled = SharedSettings.usageRemindersEnabled
+        usageReminderInterval = SharedSettings.usageReminderInterval
 
         OutLoudLog.lifecycle.info(
             "Model initialized; onboarding complete: \(self.onboardingCompleted, privacy: .public), protection enabled: \(self.protectionEnabled, privacy: .public), selected count: \(self.selectedItemCount, privacy: .public)"
@@ -44,6 +48,15 @@ final class AppModel: ObservableObject {
 #if !targetEnvironment(simulator)
             Task { await FlexibleAcknowledgementMatcher.prepareModelAssets() }
 #endif
+        }
+        if usageRemindersEnabled && !isDemoMode {
+            do {
+                try UsageReminderManager.ensureMonitoring()
+            } catch {
+                OutLoudLog.screenTime.error(
+                    "Failed to restore usage reminder monitoring: \(error.localizedDescription)"
+                )
+            }
         }
     }
 
@@ -118,6 +131,9 @@ final class AppModel: ObservableObject {
             "Saved protected selection; selected count: \(self.selectedItemCount, privacy: .public)"
         )
         if protectionEnabled { ShieldManager.applySavedSelection() }
+        if usageRemindersEnabled {
+            refreshUsageReminderMonitoring()
+        }
     }
 
     func savePhrase() {
@@ -165,6 +181,9 @@ final class AppModel: ObservableObject {
         OutLoudLog.screenTime.info(
             "Saved automatic return destination: \(destination.displayName, privacy: .public)"
         )
+        if usageRemindersEnabled {
+            refreshUsageReminderMonitoring()
+        }
     }
 
     func setProtection(_ enabled: Bool) {
@@ -192,20 +211,60 @@ final class AppModel: ObservableObject {
         OutLoudLog.screenTime.info("Ask-again mode changed: \(mode.rawValue, privacy: .public)")
     }
 
+    func selectUsageReminderInterval(_ interval: UsageReminderInterval) async {
+        let allowed = (try? await UNUserNotificationCenter.current().requestAuthorization(
+            options: [.alert, .sound]
+        )) ?? false
+        guard allowed else {
+            errorMessage = "Notifications are turned off. Allow notifications for OutLoud in Settings to use usage reminders."
+            return
+        }
+
+        usageReminderInterval = interval
+        usageRemindersEnabled = true
+        SharedSettings.usageReminderInterval = interval
+        SharedSettings.usageRemindersEnabled = true
+        OutLoudLog.screenTime.info(
+            "Usage reminders enabled; minutes: \(interval.rawValue, privacy: .public)"
+        )
+        guard !isDemoMode else { return }
+
+        do {
+            try UsageReminderManager.refreshMonitoring()
+        } catch {
+            usageRemindersEnabled = false
+            SharedSettings.usageRemindersEnabled = false
+            errorMessage = "OutLoud couldn’t start usage reminders. \(error.localizedDescription)"
+        }
+    }
+
+    func turnOffUsageReminders() {
+        usageRemindersEnabled = false
+        SharedSettings.usageRemindersEnabled = false
+        UsageReminderManager.stopMonitoring()
+        SharedSettings.usageReminderTargets = []
+        UNUserNotificationCenter.current().removeDeliveredNotifications(
+            withIdentifiers: [UsageReminderNotification.identifier]
+        )
+        OutLoudLog.screenTime.info("Usage reminders turned off")
+    }
+
     func moveOnboarding(to step: OnboardingStep) {
         onboardingStep = step
         SharedSettings.onboardingStep = step.rawValue
         OutLoudLog.onboarding.info("Moved to onboarding step: \(step.rawValue, privacy: .public)")
     }
 
-    func finishOnboarding() {
+    func finishOnboarding(enableProtection: Bool = true) {
         savePhrase()
-        setProtection(true)
+        setProtection(enableProtection)
         onboardingCompleted = true
         onboardingStep = .welcome
         SharedSettings.onboardingCompleted = true
         SharedSettings.onboardingStep = 0
-        OutLoudLog.onboarding.info("Onboarding completed and protection enabled")
+        OutLoudLog.onboarding.info(
+            "Onboarding completed; protection enabled: \(enableProtection, privacy: .public), usage reminders enabled: \(self.usageRemindersEnabled, privacy: .public)"
+        )
     }
 
     func refreshPendingChallenge() {
@@ -308,6 +367,16 @@ final class AppModel: ObservableObject {
         let selectedTokens = selection.applicationTokens
         returnMappings.removeAll { !selectedTokens.contains($0.applicationToken) }
         SharedSettings.returnMappings = returnMappings
+    }
+
+    private func refreshUsageReminderMonitoring() {
+        do {
+            try UsageReminderManager.refreshMonitoring()
+        } catch {
+            usageRemindersEnabled = false
+            SharedSettings.usageRemindersEnabled = false
+            errorMessage = "OutLoud couldn’t update usage reminders. \(error.localizedDescription)"
+        }
     }
 
     private func requestFallbackNotificationAuthorization() async -> Bool {

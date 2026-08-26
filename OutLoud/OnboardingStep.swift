@@ -6,6 +6,7 @@ enum OnboardingStep: Int, CaseIterable {
     case apps
     case phrase
     case everyVisit
+    case usageReminders
     case ready
 
     static let progressCount = allCases.count - 1

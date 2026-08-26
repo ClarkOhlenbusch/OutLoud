@@ -29,6 +29,7 @@
 		A10500000000000000000001 /* OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10300000000000000000001 /* OnboardingStep.swift */; };
 		A10600000000000000000001 /* OnboardingStepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10400000000000000000001 /* OnboardingStepTests.swift */; };
 		A10700000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10800000000000000000001 /* Assets.xcassets */; };
+		A11800000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10800000000000000000001 /* Assets.xcassets */; };
 		A11100000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A11000000000000000000001 /* PrivacyInfo.xcprivacy */; };
 		A11200000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A11000000000000000000001 /* PrivacyInfo.xcprivacy */; };
 		A11300000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A11000000000000000000001 /* PrivacyInfo.xcprivacy */; };
@@ -361,6 +362,9 @@
 							com.apple.FamilyControls = {
 								enabled = 1;
 							};
+							com.apple.UserNotifications.time-sensitive = {
+								enabled = 1;
+							};
 						};
 					};
 					C70DF7B21ACB6C1F07304A79 = {
@@ -429,6 +433,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A11800000000000000000001 /* Assets.xcassets in Resources */,
 				A11400000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -563,6 +568,7 @@
 		45B88829D70A2A2E728F6764 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Configuration/DeviceActivityMonitor.entitlements;
 				DEVELOPMENT_TEAM = 575X4F2KCC;
 				INFOPLIST_FILE = "Configuration/DeviceActivityMonitor-Info.plist";
@@ -650,7 +656,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -688,6 +694,7 @@
 		9BED596D48818A29CBA2EA49 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Configuration/DeviceActivityMonitor.entitlements;
 				DEVELOPMENT_TEAM = 575X4F2KCC;
 				INFOPLIST_FILE = "Configuration/DeviceActivityMonitor-Info.plist";
@@ -756,7 +763,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;

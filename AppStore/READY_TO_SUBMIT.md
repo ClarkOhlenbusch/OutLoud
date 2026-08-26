@@ -7,7 +7,8 @@ Prepared August 25, 2026.
 - App Store Connect app: [OutLoud: Mindful App Pause](https://appstoreconnect.apple.com/apps/6804832298/distribution/ios/version/inflight)
 - Apple app ID: `6804832298`
 - Bundle ID: `com.clarkohlenbusch.outloud`
-- Uploaded build: `1.0.0 (2)`
+- Previously uploaded build: `1.0.0 (2)`
+- Next build to upload: `1.0.0 (3)`; this contains usage reminders and the updated onboarding
 - Build status: processed and available through **Add Build**
 - Distribution entitlements: approved for the app and all three extensions
 - Screenshots: four App Store-valid 6.5-inch JPEGs in [Screenshots-6.5](Screenshots-6.5)
@@ -120,6 +121,7 @@ FEATURES
 - Return automatically to individually configured apps after speaking
 - Practice your phrases during setup
 - Ask again after every visit or after a 15-, 30-, or 60-minute access window
+- Keep strong reminders running every 1, 5, or 10 minutes in each selected app, even with protection off
 - Keep settings and challenge state on your device
 
 PRIVATE BY DESIGN
@@ -145,9 +147,9 @@ screen time,mindfulness,focus,digital wellbeing,habits,social media,app blocker,
 | Copyright | `2026 Clark Ohlenbusch` |
 | Routing App Coverage File | Leave empty |
 
-## 6. Select the build
+## 6. Upload and select the updated build
 
-In the **Build** section, click **Add Build**, select `1.0.0 (2)`, and click **Done**.
+Archive and upload `1.0.0 (3)` using the steps in [SUBMISSION.md](SUBMISSION.md). After App Store Connect finishes processing it, click **Add Build**, select `1.0.0 (3)`, and click **Done**. Do not select `1.0.0 (2)` because it predates usage reminders and the updated onboarding.
 
 If App Store Connect asks about encryption, the app does not implement proprietary or standard encryption algorithms. It only invokes ordinary system-handled URLs when returning to supported apps. Choose the answer equivalent to **None of the algorithms mentioned above / only encryption within Apple's operating system**, which requires no export documentation.
 
@@ -174,10 +176,12 @@ Suggested review flow:
 1. Launch OutLoud and approve individual Screen Time authorization.
 2. In Apple's Family Activity picker, select an installed app individually.
 3. Keep or edit the default intention, complete voice practice, and choose a timer-based access window.
-4. Turn protection on.
-5. Open the selected app and tap Unlock on the system shield.
-6. OutLoud opens to the voice orb. Speak the displayed phrase.
-7. After confirmation, OutLoud removes the shield for the selected access window and provides a return button.
+4. Choose a 1-, 5-, or 10-minute usage reminder, or select Not now.
+5. Turn protection on. When reminders are enabled, onboarding also offers a reminders-only completion path.
+6. Open the selected app and tap Unlock on the system shield.
+7. OutLoud opens to the voice orb. Speak the displayed phrase.
+8. After confirmation, OutLoud removes the shield for the selected access window and provides a return button.
+9. Usage reminders use local notifications at the user-selected foreground-usage interval and continue independently when protection is off. Notification access is requested only when an interval is chosen (or when an older iOS release needs the shield handoff fallback).
 
 The timer-based access-window option needs no Shortcuts automation. The every-visit option includes separate Shortcuts setup instructions.
 

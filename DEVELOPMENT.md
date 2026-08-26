@@ -29,6 +29,7 @@ The current unit tests cover:
 
 - Phrase collections, normalization, contractions, punctuation, recognition errors, flexible acknowledgments, model loading, safety gates, incomplete phrases, and false positives.
 - Every persisted onboarding step, invalid persisted state, back navigation, and progress count.
+- Usage-reminder interval persistence, independent monitor generations, notification copy, and event-name parsing.
 
 The full app and test bundle can be compiled without signing with:
 
@@ -38,6 +39,8 @@ xcodebuild -project OutLoud.xcodeproj -scheme OutLoud -sdk iphoneos \
 ```
 
 Apple’s Screen Time picker, shields, extension handoff, and speech permissions require a physical device for meaningful end-to-end testing. Those system-owned screens are not good unit-test targets; verify them with the connected-device flow after unit tests pass.
+
+For usage reminders, choose each cadence on a physical iPhone, turn protection off, and keep an individually selected app frontmost through at least two thresholds. Confirm the alert uses the OutLoud icon, names mapped apps, replaces the previous delivered reminder, and pauses that app's elapsed-use count while another app is frontmost. Reopen the first app to confirm its count continues, then use the subtle turn-off action and confirm reminders stop. Repeat once with Focus enabled to verify the device's Time Sensitive notification setting.
 
 ## Flexible-acknowledgment model
 

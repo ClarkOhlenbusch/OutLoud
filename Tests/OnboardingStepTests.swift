@@ -1,3 +1,4 @@
+import DeviceActivity
 import XCTest
 @testable import OutLoud
 
@@ -14,7 +15,8 @@ final class OnboardingStepTests: XCTestCase {
     }
 
     func testPreviousStepMovesBackOnePage() {
-        XCTAssertEqual(OnboardingStep.ready.previous, .everyVisit)
+        XCTAssertEqual(OnboardingStep.ready.previous, .usageReminders)
+        XCTAssertEqual(OnboardingStep.usageReminders.previous, .everyVisit)
         XCTAssertEqual(OnboardingStep.phrase.previous, .apps)
     }
 
@@ -23,7 +25,7 @@ final class OnboardingStepTests: XCTestCase {
     }
 
     func testProgressCountExcludesWelcomePage() {
-        XCTAssertEqual(OnboardingStep.progressCount, 5)
+        XCTAssertEqual(OnboardingStep.progressCount, 6)
     }
 
     func testAskAgainModesHaveStableStoredValues() {
@@ -46,6 +48,49 @@ final class OnboardingStepTests: XCTestCase {
         )
     }
 
+    func testUsageReminderIntervalsHaveStableStoredValues() {
+        XCTAssertEqual(UsageReminderInterval(rawValue: 1), .oneMinute)
+        XCTAssertEqual(UsageReminderInterval(rawValue: 5), .fiveMinutes)
+        XCTAssertEqual(UsageReminderInterval(rawValue: 10), .tenMinutes)
+        XCTAssertNil(UsageReminderInterval(rawValue: 3))
+    }
+
+    func testUsageReminderActivitiesUseIndependentGenerations() {
+        let targetID = UUID()
+        let first = UsageReminderActivity.name(targetID: targetID, generation: 1)
+        let second = UsageReminderActivity.name(targetID: targetID, generation: 2)
+
+        XCTAssertNotEqual(first, second)
+        XCTAssertTrue(UsageReminderActivity.isUsageReminder(first))
+        XCTAssertFalse(UsageReminderActivity.isUsageReminder(.relockTestActivity))
+    }
+
+    func testOneMinuteRemindersUseSingularNotificationCopy() {
+        XCTAssertEqual(
+            UsageReminderNotification.title(elapsedMinutes: 1, appName: "TikTok"),
+            "YOU HAVE SPENT 1 MINUTE ON TIKTOK"
+        )
+    }
+
+    func testUsageReminderNotificationUsesStrongPluralCopy() {
+        XCTAssertEqual(
+            UsageReminderNotification.title(elapsedMinutes: 15, appName: "YouTube"),
+            "YOU HAVE SPENT 15 MINUTES ON YOUTUBE"
+        )
+        XCTAssertEqual(
+            UsageReminderNotification.body,
+            "You asked OutLoud to interrupt you. Close it now."
+        )
+    }
+
+    func testUsageReminderEventNamesRoundTripElapsedMinutes() {
+        let name = UsageReminderEvent.name(for: 25)
+        XCTAssertEqual(UsageReminderEvent.elapsedMinutes(from: name), 25)
+        XCTAssertNil(
+            UsageReminderEvent.elapsedMinutes(from: DeviceActivityEvent.Name("unrelated"))
+        )
+    }
+
     func testEveryReturnDestinationHasAnAppLinkAndUniversalLink() {
         for destination in ReturnDestination.allCases {
             XCTAssertEqual(destination.launchURLs.count, 2)
@@ -58,4 +103,8 @@ final class OnboardingStepTests: XCTestCase {
         let names = ReturnDestination.allCases.map(\.displayName)
         XCTAssertEqual(Set(names).count, names.count)
     }
+}
+
+private extension DeviceActivityName {
+    static let relockTestActivity = DeviceActivityName("outloud.relock.test")
 }
