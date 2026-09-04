@@ -9,7 +9,7 @@ Prepared September 4, 2026.
 - Bundle ID: `com.clarkohlenbusch.outloud`
 - Previously uploaded build: `1.0.0 (3)` (rejected under Guideline 2.1(a))
 - Next build to upload: `1.0.0 (4)`; this fixes Screen Time authorization on current iPadOS and makes usage reminders follow cumulative daily app time
-- Build status: not yet uploaded
+- Build status: uploaded September 4, 2026; wait for App Store Connect processing to complete before selecting it
 - Distribution entitlements: approved for the app and all three extensions
 - Screenshots: four App Store-valid 6.5-inch JPEGs in [Screenshots-6.5](Screenshots-6.5)
 
