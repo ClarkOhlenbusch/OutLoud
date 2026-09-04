@@ -362,7 +362,11 @@ struct OnboardingView: View {
                 statusPill("Access allowed", icon: "checkmark")
             }
         } action: {
-            primaryButton(model.isAuthorized ? "Continue" : "Allow access") {
+            primaryButton(
+                model.isAuthorized
+                    ? "Continue"
+                    : (model.isRequestingScreenTimeAuthorization ? "Allowing access…" : "Allow access")
+            ) {
                 if model.isAuthorized {
                     move(to: .apps)
                 } else {
@@ -372,6 +376,8 @@ struct OnboardingView: View {
                     }
                 }
             }
+            .disabled(model.isRequestingScreenTimeAuthorization)
+            .opacity(model.isRequestingScreenTimeAuthorization ? 0.65 : 1)
         }
     }
 
@@ -550,7 +556,7 @@ struct OnboardingView: View {
                 )
 
                 Label(
-                    "Time counts only while each app is open and continues across visits.",
+                    "Each app’s time adds up across every visit today and resets at midnight.",
                     systemImage: "clock.arrow.circlepath"
                 )
                 .font(.caption)
@@ -1090,7 +1096,7 @@ private struct UsageReminderSetupView: View {
                         )
 
                         Label(
-                            "Time counts only while each selected app is frontmost, continues across visits, and resets daily. Notification delivery can be affected by Focus and system settings.",
+                            "Each selected app’s frontmost time adds up across every visit today and resets at midnight. Notification delivery can be affected by Focus and system settings.",
                             systemImage: "info.circle.fill"
                         )
                         .font(.caption)

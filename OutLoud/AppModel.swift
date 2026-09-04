@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published var returnMappings: [ApplicationReturnMapping]
     @Published var usageRemindersEnabled: Bool
     @Published var usageReminderInterval: UsageReminderInterval
+    @Published private(set) var isRequestingScreenTimeAuthorization = false
     @Published var errorMessage: String?
     @Published var demoSelectedApps: Set<String> = ["Instagram", "TikTok"]
 
@@ -68,7 +69,9 @@ final class AppModel: ObservableObject {
 #endif
     }
 
-    var isAuthorized: Bool { isDemoMode || authorizationStatus == .approved }
+    var isAuthorized: Bool {
+        isDemoMode || authorizationStatus.grantsOutLoudScreenTimeAccess
+    }
 
     var phrases: [String] {
         PhraseMatcher.phrases(from: phrase)
@@ -101,20 +104,52 @@ final class AppModel: ObservableObject {
     }
 
     func requestAuthorization() async {
+        guard !isRequestingScreenTimeAuthorization else { return }
+        isRequestingScreenTimeAuthorization = true
+        errorMessage = nil
+        defer { isRequestingScreenTimeAuthorization = false }
+
         OutLoudLog.onboarding.info("Requesting Screen Time authorization")
-        do {
-            try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-            authorizationStatus = AuthorizationCenter.shared.authorizationStatus
-            let notificationsAllowed = await requestFallbackNotificationAuthorization()
-            OutLoudLog.onboarding.info(
-                "Screen Time authorization finished; approved: \(self.isAuthorized, privacy: .public), notifications allowed: \(notificationsAllowed, privacy: .public)"
-            )
-        } catch {
-            authorizationStatus = AuthorizationCenter.shared.authorizationStatus
-            OutLoudLog.onboarding.error(
-                "Screen Time authorization failed: \(error.localizedDescription, privacy: .public)"
-            )
-            errorMessage = "Screen Time access wasn’t granted. \(error.localizedDescription)"
+        for attempt in 0...1 {
+            do {
+                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+
+                guard isAuthorized else {
+                    OutLoudLog.onboarding.error(
+                        "Screen Time authorization returned without an approved status; status: \(self.authorizationStatus.description, privacy: .public)"
+                    )
+                    errorMessage = "Screen Time access didn’t finish setting up. Tap Allow access to try again."
+                    return
+                }
+
+                let notificationsAllowed = await requestFallbackNotificationAuthorization()
+                OutLoudLog.onboarding.info(
+                    "Screen Time authorization finished; approved: true, notifications allowed: \(notificationsAllowed, privacy: .public)"
+                )
+                return
+            } catch let familyControlsError as FamilyControlsError {
+                authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                if attempt == 0, familyControlsError.isTransientAuthorizationFailure {
+                    OutLoudLog.onboarding.notice(
+                        "Retrying transient Screen Time authorization failure: \(familyControlsError.localizedDescription, privacy: .public)"
+                    )
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    continue
+                }
+                OutLoudLog.onboarding.error(
+                    "Screen Time authorization failed: \(familyControlsError.localizedDescription, privacy: .public)"
+                )
+                errorMessage = familyControlsError.outLoudAuthorizationMessage
+                return
+            } catch {
+                authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                OutLoudLog.onboarding.error(
+                    "Screen Time authorization failed: \(error.localizedDescription, privacy: .public)"
+                )
+                errorMessage = "Screen Time access couldn’t be set up. Tap Allow access to try again."
+                return
+            }
         }
     }
 
@@ -388,5 +423,53 @@ final class AppModel: ObservableObject {
 #endif
         return (try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound])) ?? false
+    }
+}
+
+extension AuthorizationStatus {
+    var grantsOutLoudScreenTimeAccess: Bool {
+        if self == .approved { return true }
+#if compiler(>=6.3)
+        if #available(iOS 26.4, *), self == .approvedWithDataAccess {
+            return true
+        }
+#endif
+        return false
+    }
+}
+
+private extension FamilyControlsError {
+    var isTransientAuthorizationFailure: Bool {
+        switch self {
+        case .networkError, .unavailable:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var outLoudAuthorizationMessage: String {
+        switch self {
+        case .authenticationMethodUnavailable:
+            return "A device passcode is required for Screen Time access. Set a passcode in Settings, then try again."
+        case .invalidAccountType:
+            return "Screen Time access requires a valid Apple Account on this device. Check Settings, then try again."
+        case .authorizationConflict:
+            return "Another app already controls Screen Time on this device. Turn off its access in Settings, then try again."
+        case .restricted:
+            return "Screen Time access is restricted on this device. Check Screen Time settings, then try again."
+        case .networkError, .unavailable:
+            return "Screen Time is temporarily unavailable. Check the internet connection and try again."
+        case .authorizationCanceled:
+            return "Screen Time access wasn’t allowed. Tap Allow access to try again."
+        case .invalidArgument:
+            return "Screen Time access couldn’t be set up. Tap Allow access to try again."
+#if compiler(>=6.3)
+        case .unauthorized:
+            return "Screen Time didn’t authorize OutLoud. Tap Allow access to try again."
+#endif
+        @unknown default:
+            return "Screen Time access couldn’t be set up. Tap Allow access to try again."
+        }
     }
 }

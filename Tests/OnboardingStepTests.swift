@@ -1,4 +1,5 @@
 import DeviceActivity
+import FamilyControls
 import XCTest
 @testable import OutLoud
 
@@ -54,6 +55,26 @@ final class OnboardingStepTests: XCTestCase {
         XCTAssertEqual(UsageReminderInterval(rawValue: 10), .tenMinutes)
         XCTAssertNil(UsageReminderInterval(rawValue: 3))
     }
+
+    func testUsageReminderIntervalsAdvanceToTheNextDailyMultiple() {
+        XCTAssertEqual(UsageReminderInterval.oneMinute.nextNotificationMinute(after: 72), 73)
+        XCTAssertEqual(UsageReminderInterval.fiveMinutes.nextNotificationMinute(after: 73), 75)
+        XCTAssertEqual(UsageReminderInterval.fiveMinutes.nextNotificationMinute(after: 75), 80)
+        XCTAssertEqual(UsageReminderInterval.tenMinutes.nextNotificationMinute(after: 73), 80)
+    }
+
+    func testStandardAuthorizationGrantsScreenTimeAccess() {
+        XCTAssertTrue(AuthorizationStatus.approved.grantsOutLoudScreenTimeAccess)
+        XCTAssertFalse(AuthorizationStatus.denied.grantsOutLoudScreenTimeAccess)
+        XCTAssertFalse(AuthorizationStatus.notDetermined.grantsOutLoudScreenTimeAccess)
+    }
+
+#if compiler(>=6.3)
+    @available(iOS 26.4, *)
+    func testDataAccessAuthorizationAlsoGrantsScreenTimeAccess() {
+        XCTAssertTrue(AuthorizationStatus.approvedWithDataAccess.grantsOutLoudScreenTimeAccess)
+    }
+#endif
 
     func testUsageReminderActivitiesUseIndependentGenerations() {
         let targetID = UUID()

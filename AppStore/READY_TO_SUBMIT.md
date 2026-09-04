@@ -1,15 +1,15 @@
 # OutLoud App Store Connect submission packet
 
-Prepared August 25, 2026.
+Prepared September 4, 2026.
 
 ## Current release status
 
 - App Store Connect app: [OutLoud: Mindful App Pause](https://appstoreconnect.apple.com/apps/6804832298/distribution/ios/version/inflight)
 - Apple app ID: `6804832298`
 - Bundle ID: `com.clarkohlenbusch.outloud`
-- Previously uploaded build: `1.0.0 (2)`
-- Next build to upload: `1.0.0 (3)`; this contains usage reminders and the updated onboarding
-- Build status: processed and available through **Add Build**
+- Previously uploaded build: `1.0.0 (3)` (rejected under Guideline 2.1(a))
+- Next build to upload: `1.0.0 (4)`; this fixes Screen Time authorization on current iPadOS and makes usage reminders follow cumulative daily app time
+- Build status: not yet uploaded
 - Distribution entitlements: approved for the app and all three extensions
 - Screenshots: four App Store-valid 6.5-inch JPEGs in [Screenshots-6.5](Screenshots-6.5)
 
@@ -121,7 +121,7 @@ FEATURES
 - Return automatically to individually configured apps after speaking
 - Practice your phrases during setup
 - Ask again after every visit or after a 15-, 30-, or 60-minute access window
-- Keep strong reminders running every 1, 5, or 10 minutes in each selected app, even with protection off
+- Keep strong reminders running at every 1-, 5-, or 10-minute milestone in each selected app's daily total, even with protection off
 - Keep settings and challenge state on your device
 
 PRIVATE BY DESIGN
@@ -149,7 +149,7 @@ screen time,mindfulness,focus,digital wellbeing,habits,social media,app blocker,
 
 ## 6. Upload and select the updated build
 
-Archive and upload `1.0.0 (3)` using the steps in [SUBMISSION.md](SUBMISSION.md). After App Store Connect finishes processing it, click **Add Build**, select `1.0.0 (3)`, and click **Done**. Do not select `1.0.0 (2)` because it predates usage reminders and the updated onboarding.
+Archive and upload `1.0.0 (4)` using the steps in [SUBMISSION.md](SUBMISSION.md). After App Store Connect finishes processing it, click **Add Build**, select `1.0.0 (4)`, and click **Done**. Do not select `1.0.0 (3)` because it predates the current iPadOS authorization fix and cumulative daily reminder thresholds.
 
 If App Store Connect asks about encryption, the app does not implement proprietary or standard encryption algorithms. It only invokes ordinary system-handled URLs when returning to supported apps. Choose the answer equivalent to **None of the algorithms mentioned above / only encryption within Apple's operating system**, which requires no export documentation.
 
@@ -181,7 +181,7 @@ Suggested review flow:
 6. Open the selected app and tap Unlock on the system shield.
 7. OutLoud opens to the voice orb. Speak the displayed phrase.
 8. After confirmation, OutLoud removes the shield for the selected access window and provides a return button.
-9. Usage reminders use local notifications at the user-selected foreground-usage interval and continue independently when protection is off. Notification access is requested only when an interval is chosen (or when an older iOS release needs the shield handoff fallback).
+9. Usage reminders use local notifications at the user-selected interval, based on each app’s cumulative foreground time for the current day. For example, a 5-minute interval notifies at 5, 10, 15, and subsequent daily totals divisible by 5. The total continues across visits, resets at midnight, and reminders work independently when protection is off. Notification access is requested only when an interval is chosen (or when an older iOS release needs the shield handoff fallback).
 
 The timer-based access-window option needs no Shortcuts automation. The every-visit option includes separate Shortcuts setup instructions.
 
@@ -193,6 +193,22 @@ Family Controls distribution approval is assigned to the main app and all three 
 Under **App Store Version Release**, select **Automatically release this version** unless you specifically want to hold the approved release for a manual launch.
 
 Click **Save**.
+
+Reply to the Guideline 2.1(a) message after selecting build `1.0.0 (4)`:
+
+```text
+Hello App Review,
+
+Thank you for the report. We addressed the Screen Time authorization issue in build 1.0.0 (4).
+
+The authorization flow now recognizes every successful authorization state available on current iPadOS, prevents overlapping requests, and automatically retries a transient Family Controls network/setup failure once. If the device cannot authorize Screen Time because of its account, passcode, restrictions, or another controlling app, OutLoud now shows a specific recovery step instead of the underlying system error.
+
+We also verified that the app and all three embedded Screen Time extensions contain the Family Controls entitlement, and ran the test suite in iPhone compatibility mode on iPadOS 26.5.
+
+Please review build 1.0.0 (4). If Screen Time authorization still fails in your environment, please send the exact error text or a screenshot so we can identify the system error case.
+
+Thank you.
+```
 
 ## 8. Optional sections to skip for version 1.0.0
 

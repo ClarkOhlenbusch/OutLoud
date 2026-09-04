@@ -21,7 +21,7 @@ OutLoud requests Microphone and Speech Recognition access only while a spoken pa
 
 ## Notifications and Shortcuts
 
-On iOS versions before 26.5, OutLoud may request notification access to provide a user-initiated bridge from Apple's Screen Time shield to the app. On newer releases, the shield can open OutLoud directly. If you choose a usage-reminder interval, OutLoud also uses local, time-sensitive notifications after each interval of foreground use in each selected app. These reminders operate independently of protection until you turn them off, and their timing is processed on device. The optional Shortcuts automation invokes an on-device action that re-applies protection; it does not contact a server.
+On iOS versions before 26.5, OutLoud may request notification access to provide a user-initiated bridge from Apple's Screen Time shield to the app. On newer releases, the shield can open OutLoud directly. If you choose a usage-reminder interval, OutLoud also uses local, time-sensitive notifications at each matching milestone in a selected app's cumulative foreground time for the current day. The total continues across visits and resets daily. These reminders operate independently of protection until you turn them off, and their timing is processed on device. The optional Shortcuts automation invokes an on-device action that re-applies protection; it does not contact a server.
 
 ## Analytics, advertising, and third parties
 

@@ -284,6 +284,11 @@ enum UsageReminderInterval: Int, CaseIterable, Identifiable {
     var summary: String {
         rawValue == 1 ? "Every minute" : "Every \(rawValue) min"
     }
+
+    func nextNotificationMinute(after elapsedMinutes: Int) -> Int {
+        let elapsedMinutes = max(0, elapsedMinutes)
+        return ((elapsedMinutes / rawValue) + 1) * rawValue
+    }
 }
 
 enum UsageReminderEvent {
@@ -340,11 +345,18 @@ enum UsageReminderManager {
         let previousTargets = SharedSettings.usageReminderTargets
         let targets = selectedChallenges().map { challenge in
             let previous = previousTargets.first { $0.challenge == challenge }
+            let elapsedMinutes: Int
+            if let previous,
+               Calendar.current.isDate(previous.dayStarted, inSameDayAs: today) {
+                elapsedMinutes = previous.elapsedMinutes
+            } else {
+                elapsedMinutes = 0
+            }
             return UsageReminderTarget(
                 id: previous?.id ?? UUID(),
                 challenge: challenge,
                 appName: appName(for: challenge),
-                elapsedMinutes: 0,
+                elapsedMinutes: elapsedMinutes,
                 generation: (previous?.generation ?? -1) + 1,
                 dayStarted: today
             )
@@ -407,8 +419,9 @@ enum UsageReminderManager {
             return nil
         }
 
-        let expectedMinutes = targets[index].elapsedMinutes
-            + SharedSettings.usageReminderInterval.rawValue
+        let expectedMinutes = SharedSettings.usageReminderInterval.nextNotificationMinute(
+            after: targets[index].elapsedMinutes
+        )
         guard elapsedMinutes == expectedMinutes else { return nil }
 
         let previousActivity = targets[index].activityName
@@ -442,17 +455,30 @@ enum UsageReminderManager {
     }
 
     private static func startMonitoring(_ target: UsageReminderTarget) throws {
-        let interval = SharedSettings.usageReminderInterval.rawValue
-        let nextElapsedMinutes = target.elapsedMinutes + interval
+        let nextElapsedMinutes = SharedSettings.usageReminderInterval.nextNotificationMinute(
+            after: target.elapsedMinutes
+        )
         let event: DeviceActivityEvent
 
         switch target.challenge {
         case .application(let token):
-            event = makeEvent(applications: [token], thresholdMinutes: interval)
+            event = makeEvent(
+                applications: [token],
+                elapsedMinutes: target.elapsedMinutes,
+                nextElapsedMinutes: nextElapsedMinutes
+            )
         case .category(let token):
-            event = makeEvent(categories: [token], thresholdMinutes: interval)
+            event = makeEvent(
+                categories: [token],
+                elapsedMinutes: target.elapsedMinutes,
+                nextElapsedMinutes: nextElapsedMinutes
+            )
         case .webDomain(let token):
-            event = makeEvent(webDomains: [token], thresholdMinutes: interval)
+            event = makeEvent(
+                webDomains: [token],
+                elapsedMinutes: target.elapsedMinutes,
+                nextElapsedMinutes: nextElapsedMinutes
+            )
         case .selection, .practice:
             return
         }
@@ -468,22 +494,23 @@ enum UsageReminderManager {
         applications: Set<ApplicationToken> = [],
         categories: Set<ActivityCategoryToken> = [],
         webDomains: Set<WebDomainToken> = [],
-        thresholdMinutes: Int
+        elapsedMinutes: Int,
+        nextElapsedMinutes: Int
     ) -> DeviceActivityEvent {
         if #available(iOS 17.4, *) {
             return DeviceActivityEvent(
                 applications: applications,
                 categories: categories,
                 webDomains: webDomains,
-                threshold: DateComponents(minute: thresholdMinutes),
-                includesPastActivity: false
+                threshold: DateComponents(minute: nextElapsedMinutes),
+                includesPastActivity: true
             )
         }
         return DeviceActivityEvent(
             applications: applications,
             categories: categories,
             webDomains: webDomains,
-            threshold: DateComponents(minute: thresholdMinutes)
+            threshold: DateComponents(minute: nextElapsedMinutes - elapsedMinutes)
         )
     }
 

@@ -82,7 +82,7 @@ Read the [privacy policy](docs/privacy.md) or inspect the bundled [privacy manif
 2. OutLoud places a system-managed shield over them.
 3. Tap the shield to open the focused voice pause.
 4. Speak naturally or use a saved phrase.
-5. Continue with a temporary access window, or keep always-on reminders running independently every 1, 5, or 10 minutes of foreground use in each selected app.
+5. Continue with a temporary access window, or keep always-on reminders running independently at every 1-, 5-, or 10-minute milestone in each selected app’s cumulative foreground time for the day.
 6. Pause again on the next visit or when the timer ends.
 
 The friendly onboarding includes the reminder choice and lets people finish with reminders only, without enabling Protection.

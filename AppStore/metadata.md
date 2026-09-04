@@ -39,7 +39,7 @@ FEATURES
 - Return automatically to individually configured apps after speaking
 - Practice your phrases during setup
 - Ask again after every visit or after a 15-, 30-, or 60-minute access window
-- Keep strong reminders running every 1, 5, or 10 minutes in each selected app, even with protection off
+- Keep strong reminders running at every 1-, 5-, or 10-minute milestone in each selected app's daily total, even with protection off
 - Keep settings and challenge state on your device
 
 PRIVATE BY DESIGN
