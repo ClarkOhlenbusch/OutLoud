@@ -21,6 +21,11 @@ enum SharedSettings {
     static let relockActivity = DeviceActivityName("outloud.relock")
     private static let pendingChallengeFilename = "pending-challenge.json"
 
+#if DEBUG
+    // Each test uses its own suite and directory; never the user's App Group.
+    static var testStorage: (defaults: UserDefaults, directory: URL)?
+#endif
+
     private enum Key {
         static let selection = "selection"
         static let phrase = "phrase"
@@ -42,6 +47,9 @@ enum SharedSettings {
     }
 
     static var defaults: UserDefaults {
+#if DEBUG
+        if let testStorage { return testStorage.defaults }
+#endif
         guard let defaults = UserDefaults(suiteName: appGroup) else {
             preconditionFailure("The OutLoud App Group is missing from the target entitlements.")
         }
@@ -218,6 +226,14 @@ enum SharedSettings {
         set { defaults.set(newValue, forKey: Key.unlockExpiration) }
     }
 
+    static var accessWindows: [AccessWindow] {
+        get {
+            guard let data = defaults.data(forKey: "accessWindows") else { return [] }
+            return (try? JSONDecoder().decode([AccessWindow].self, from: data)) ?? []
+        }
+        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: "accessWindows") }
+    }
+
     static var returnMappings: [ApplicationReturnMapping] {
         get {
             guard let data = defaults.data(forKey: Key.returnMappings) else { return [] }
@@ -252,7 +268,12 @@ enum SharedSettings {
     }
 
     private static var pendingChallengeURL: URL? {
-        FileManager.default
+#if DEBUG
+        if let testStorage {
+            return testStorage.directory.appendingPathComponent(pendingChallengeFilename)
+        }
+#endif
+        return FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
             .appendingPathComponent(pendingChallengeFilename, isDirectory: false)
     }
@@ -302,6 +323,14 @@ enum UsageReminderEvent {
         guard name.rawValue.hasPrefix(prefix) else { return nil }
         return Int(name.rawValue.dropFirst(prefix.count))
     }
+
+    static func isExpected(
+        _ elapsedMinutes: Int,
+        after previousMinutes: Int,
+        interval: UsageReminderInterval
+    ) -> Bool {
+        elapsedMinutes == interval.nextNotificationMinute(after: previousMinutes)
+    }
 }
 
 struct UsageReminderTarget: Codable, Equatable {
@@ -341,7 +370,7 @@ enum UsageReminderManager {
     static func refreshMonitoring() throws {
         stopMonitoring()
 
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = Calendar.current.startOfDay(for: ScreenTimeClient.current.now())
         let previousTargets = SharedSettings.usageReminderTargets
         let targets = selectedChallenges().map { challenge in
             let previous = previousTargets.first { $0.challenge == challenge }
@@ -380,8 +409,7 @@ enum UsageReminderManager {
             return
         }
 
-        let center = DeviceActivityCenter()
-        let activeNames = Set(center.activities)
+        let activeNames = Set(ScreenTimeClient.current.activities())
         if SharedSettings.usageReminderTargets.isEmpty {
             try refreshMonitoring()
             return
@@ -394,18 +422,34 @@ enum UsageReminderManager {
     }
 
     static func stopMonitoring() {
-        let center = DeviceActivityCenter()
         let names = Set(
-            center.activities.filter(UsageReminderActivity.isUsageReminder)
+            ScreenTimeClient.current.activities().filter(UsageReminderActivity.isUsageReminder)
                 + SharedSettings.usageReminderTargets.map(\.activityName)
         )
         if !names.isEmpty {
-            center.stopMonitoring(Array(names))
+            ScreenTimeClient.current.stop(Array(names))
         }
     }
 
     static func target(for activity: DeviceActivityName) -> UsageReminderTarget? {
         SharedSettings.usageReminderTargets.first { $0.activityName == activity }
+    }
+
+    /// The extension delegates its callback here so tests exercise filtering,
+    /// notification delivery and monitor advancement as one production flow.
+    static func handleThreshold(
+        _ event: DeviceActivityEvent.Name,
+        activity: DeviceActivityName,
+        notify: (Int, String) -> Void
+    ) throws {
+        guard UsageReminderActivity.isUsageReminder(activity),
+              SharedSettings.usageRemindersEnabled,
+              let minutes = UsageReminderEvent.elapsedMinutes(from: event),
+              let target = target(for: activity),
+              UsageReminderEvent.isExpected(minutes, after: target.elapsedMinutes,
+                                            interval: SharedSettings.usageReminderInterval) else { return }
+        notify(minutes, target.appName)
+        try advance(activity: activity, elapsedMinutes: minutes)
     }
 
     @discardableResult
@@ -419,17 +463,18 @@ enum UsageReminderManager {
             return nil
         }
 
-        let expectedMinutes = SharedSettings.usageReminderInterval.nextNotificationMinute(
-            after: targets[index].elapsedMinutes
-        )
-        guard elapsedMinutes == expectedMinutes else { return nil }
+        guard UsageReminderEvent.isExpected(
+            elapsedMinutes,
+            after: targets[index].elapsedMinutes,
+            interval: SharedSettings.usageReminderInterval
+        ) else { return nil }
 
         let previousActivity = targets[index].activityName
         targets[index].elapsedMinutes = elapsedMinutes
         targets[index].generation += 1
         SharedSettings.usageReminderTargets = targets
 
-        DeviceActivityCenter().stopMonitoring([previousActivity])
+        ScreenTimeClient.current.stop([previousActivity])
         try startMonitoring(targets[index])
         return targets[index]
     }
@@ -441,7 +486,7 @@ enum UsageReminderManager {
             return
         }
 
-        let today = Calendar.current.startOfDay(for: Date())
+        let today = Calendar.current.startOfDay(for: ScreenTimeClient.current.now())
         guard targets[index].dayStarted < today else { return }
 
         let previousActivity = targets[index].activityName
@@ -450,7 +495,7 @@ enum UsageReminderManager {
         targets[index].dayStarted = today
         SharedSettings.usageReminderTargets = targets
 
-        DeviceActivityCenter().stopMonitoring([previousActivity])
+        ScreenTimeClient.current.stop([previousActivity])
         try startMonitoring(targets[index])
     }
 
@@ -483,10 +528,10 @@ enum UsageReminderManager {
             return
         }
 
-        try DeviceActivityCenter().startMonitoring(
+        try ScreenTimeClient.current.start(
             target.activityName,
-            during: schedule,
-            events: [UsageReminderEvent.name(for: nextElapsedMinutes): event]
+            schedule,
+            [UsageReminderEvent.name(for: nextElapsedMinutes): event]
         )
     }
 

@@ -214,9 +214,10 @@ struct HomeView: View {
     private var returnSetupSummary: String {
         let total = model.selection.applicationTokens.count
         guard total > 0 else { return "Choose individual apps" }
+        guard model.mappedApplicationCount > 0 else { return "Manual return" }
         return model.mappedApplicationCount == total
             ? "Ready"
-            : "\(model.mappedApplicationCount) of \(total)"
+            : "\(model.mappedApplicationCount) automatic, \(total - model.mappedApplicationCount) manual"
     }
 
     private var askAgainSummary: String {
@@ -273,7 +274,7 @@ struct OnboardingView: View {
             RearmAutomationSetupView()
         }
         .sheet(isPresented: $showingReturnSetup) {
-            AutoReturnSetupView(requiresCompleteMapping: true) {
+            AutoReturnSetupView {
                 move(to: .phrase)
             }
             .environmentObject(model)
@@ -866,7 +867,6 @@ struct AutoReturnSetupView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
 
-    var requiresCompleteMapping = false
     var onComplete: (() -> Void)?
 
     var body: some View {
@@ -876,7 +876,7 @@ struct AutoReturnSetupView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        Text("Match each protected app once. After you say a phrase, OutLoud will send you straight back.")
+                        Text("Auto-return is optional. Match a supported app to return automatically after your pause. For any other app, leave Return manually selected and switch back yourself after unlocking.")
                             .font(.body)
                             .foregroundStyle(.secondary)
 
@@ -919,11 +919,10 @@ struct AutoReturnSetupView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button(onComplete == nil ? "Done" : "Continue") {
                         dismiss()
                         onComplete?()
                     }
-                    .disabled(requiresCompleteMapping && model.needsReturnSetup)
                 }
             }
         }
@@ -952,6 +951,10 @@ struct AutoReturnSetupView: View {
             Spacer(minLength: 12)
 
             Menu {
+                Button("Return manually") {
+                    model.setReturnDestination(nil, for: token)
+                }
+                .accessibilityIdentifier("manual-return-option")
                 ForEach(ReturnDestination.allCases) { destination in
                     Button {
                         model.setReturnDestination(destination, for: token)
@@ -961,7 +964,7 @@ struct AutoReturnSetupView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text(model.returnDestination(for: token)?.displayName ?? "Choose")
+                    Text(model.returnDestination(for: token)?.displayName ?? "Return manually")
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.caption2.bold())
                 }
@@ -973,6 +976,7 @@ struct AutoReturnSetupView: View {
                 .padding(.vertical, 8)
                 .background(.white.opacity(0.07), in: Capsule())
             }
+            .accessibilityIdentifier("return-mapping")
         }
         .padding(.horizontal, 16)
         .frame(minHeight: 66)

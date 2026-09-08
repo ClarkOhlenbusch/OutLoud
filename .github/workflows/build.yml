@@ -18,3 +18,13 @@ jobs:
           -destination 'generic/platform=iOS'
           CODE_SIGNING_ALLOWED=NO
           build-for-testing
+      - name: Run unit, flow and UI tests on an available iPhone Simulator
+        shell: bash
+        run: |
+          test_device=$(xcrun simctl list devices available -j | ruby -rjson -e 'devices = JSON.parse(STDIN.read).fetch("devices").values.flatten; puts devices.find { |d| d.fetch("name").start_with?("iPhone") }.fetch("udid")')
+          xcodebuild -quiet \
+            -project OutLoud.xcodeproj -scheme OutLoud \
+            -destination "platform=iOS Simulator,id=$test_device" \
+            -parallel-testing-enabled NO \
+            -resultBundlePath build/SimulatorTests.xcresult \
+            CODE_SIGNING_ALLOWED=NO test

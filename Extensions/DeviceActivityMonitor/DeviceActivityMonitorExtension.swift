@@ -22,13 +22,12 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             OutLoudLog.screenTime.debug("Daily usage reminder interval ended")
             return
         }
-        guard activity == SharedSettings.relockActivity else {
+        guard AccessWindowManager.isAccessActivity(activity) else {
             OutLoudLog.screenTime.debug("Ignoring unrelated Device Activity interval")
             return
         }
         OutLoudLog.screenTime.info("Access window ended; reapplying shields")
-        SharedSettings.unlockExpiration = nil
-        ShieldManager.applySavedSelection()
+        AccessWindowManager.expire(activity: activity)
     }
 
     override func eventDidReachThreshold(
@@ -36,25 +35,11 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         activity: DeviceActivityName
     ) {
         super.eventDidReachThreshold(event, activity: activity)
-        guard UsageReminderActivity.isUsageReminder(activity),
-              SharedSettings.usageRemindersEnabled,
-              let elapsedMinutes = UsageReminderEvent.elapsedMinutes(from: event),
-              let target = UsageReminderManager.target(for: activity),
-              elapsedMinutes == target.elapsedMinutes
-                + SharedSettings.usageReminderInterval.rawValue else {
-            OutLoudLog.screenTime.debug("Ignoring unrelated Device Activity threshold")
-            return
-        }
-
-        OutLoudLog.screenTime.info(
-            "Usage reminder reached; elapsed minutes: \(elapsedMinutes, privacy: .public)"
-        )
-        sendUsageReminder(elapsedMinutes: elapsedMinutes, appName: target.appName)
-
         do {
-            try UsageReminderManager.advance(
+            try UsageReminderManager.handleThreshold(
+                event,
                 activity: activity,
-                elapsedMinutes: elapsedMinutes
+                notify: sendUsageReminder
             )
         } catch {
             OutLoudLog.screenTime.error(

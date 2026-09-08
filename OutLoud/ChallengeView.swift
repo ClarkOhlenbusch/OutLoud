@@ -43,14 +43,20 @@ struct ChallengeView: View {
                     }
                 }
 
-                if let error = speech.errorMessage, !completed {
+                if let error = model.challengeErrorMessage ?? speech.errorMessage, !completed {
                     Text(error)
                         .font(.callout)
                         .foregroundStyle(.red)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
 
-                    Button("Try again") { startListening() }
+                    Button(model.challengeErrorMessage == nil ? "Try again" : "Try unlocking again") {
+                        if model.challengeErrorMessage != nil {
+                            finishChallenge()
+                        } else {
+                            startListening()
+                        }
+                    }
                         .buttonStyle(.borderedProminent)
                         .tint(accent)
                         .foregroundStyle(.black)
@@ -63,6 +69,12 @@ struct ChallengeView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(accent)
+                }
+
+                if speech.isListening && !speech.transcript.isEmpty && !completed {
+                    Button("Done speaking") { speech.finishSpeaking() }
+                        .buttonStyle(.bordered)
+                        .tint(accent)
                 }
 
                 Spacer()
@@ -111,7 +123,7 @@ struct ChallengeView: View {
         .onAppear {
             guard !started else { return }
             started = true
-            startListening()
+            if model.challengeErrorMessage == nil { startListening() }
         }
         .onDisappear {
             speech.stop()
@@ -147,6 +159,8 @@ struct ChallengeView: View {
 
     private var completionTitle: String {
         if completed { return isPractice ? "That’s it" : "Unlocked" }
+        if model.challengeErrorMessage != nil { return "Couldn’t unlock" }
+        if speech.isFinalizing { return "Checking phrase" }
         return speech.isListening ? "Listening" : "Getting ready"
     }
 
@@ -291,7 +305,7 @@ struct ChallengeView: View {
                 options = [:]
             }
 
-            if await UIApplication.shared.open(url, options: options) {
+            if await ReturnLinkClient.open(url, options) {
                 OutLoudLog.challenge.info(
                     "Opened automatic return destination: \(destination.displayName, privacy: .public)"
                 )
@@ -302,5 +316,12 @@ struct ChallengeView: View {
         OutLoudLog.challenge.error(
             "Could not open automatic return destination: \(destination.displayName, privacy: .public)"
         )
+    }
+}
+
+@MainActor
+enum ReturnLinkClient {
+    static var open: (URL, [UIApplication.OpenExternalURLOptionsKey: Any]) async -> Bool = {
+        await UIApplication.shared.open($0, options: $1)
     }
 }

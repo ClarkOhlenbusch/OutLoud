@@ -2,6 +2,21 @@ import CoreML
 import Foundation
 import NaturalLanguage
 
+enum ChallengePhraseMatcher {
+    static func matches(
+        transcript: String,
+        expectedPhrases: [String],
+        acceptsSimilarAcknowledgements: Bool
+    ) -> Bool {
+        if acceptsSimilarAcknowledgements {
+            // Saved phrases belong to Specific phrases mode. They must not
+            // bypass the meaning checks used by Own words mode.
+            return FlexibleAcknowledgementMatcher.matches(transcript: transcript)
+        }
+        return PhraseMatcher.matches(transcript: transcript, expectedPhrases: expectedPhrases)
+    }
+}
+
 enum FlexibleAcknowledgementMatcher {
     private static let acknowledgementLabel = "acknowledges"
     private static let defaultThreshold = 0.88
@@ -160,6 +175,7 @@ private enum AcknowledgementPolicy {
 
     private static func expressesOppositeIntent(_ normalized: String) -> Bool {
         let vetoes = [
+            "not making", "not choosing", "not opening", "not using",
             "not a bad", "not bad", "not a poor", "not poor", "not wrong", "not unwise",
             "not wasting", "not a waste", "do not regret", "will not regret", "not a mistake",
             "not procrastinating", "not here to procrastinate", "not a distraction", "not distracting",

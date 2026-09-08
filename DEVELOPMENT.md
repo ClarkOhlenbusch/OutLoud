@@ -23,6 +23,26 @@ The shared Xcode scheme enables `IDEPreferLogStreaming=YES` for Run and Test act
 
 ## Tests
 
+Run the unit, flow and UI suites on an available iPhone Simulator:
+
+```sh
+xcodebuild -project OutLoud.xcodeproj -scheme OutLoud \
+  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+```
+
+Substitute a Simulator listed by `xcrun simctl list devices available`. The flow
+tests use isolated UserDefaults suites and temporary handoff directories, an
+in-memory Screen Time adapter and scripted speech callbacks. They do not modify
+the real App Group or real managed restrictions. Tests run serially because the
+app and extension code share static service adapters.
+
+`OutLoudUITests` uses simulator-only launch fixtures with synthetic tokens and
+audio while exercising the production SwiftUI screens. Those fixtures are
+excluded from Release and physical-device builds. Follow the
+[iPhone validation checklist](docs/DEVICE_VALIDATION.md) for real microphone,
+shield handoff, automatic return, foreground-usage counting and re-lock timing.
+
 Select a connected iPhone and choose **Product > Test** (`Command-U`) in Xcode. Results appear in the Test navigator.
 
 The current unit tests cover:
@@ -30,6 +50,11 @@ The current unit tests cover:
 - Phrase collections, normalization, contractions, punctuation, recognition errors, flexible acknowledgments, model loading, safety gates, incomplete phrases, and false positives.
 - Every persisted onboarding step, invalid persisted state, back navigation, and progress count.
 - Usage-reminder interval persistence, independent monitor generations, notification copy, and event-name parsing.
+- Own words versus Specific phrases routing, opposite-intent phrase regressions, reminder cadence changes, and retrying a failed unlock without losing the challenge.
+- Partial/final speech sequences, cancellation, stale callbacks, denied permissions, startup errors and finalization timeout.
+- Independent app access windows, expiry, stale monitor callbacks, practice, cancellation, relaunch and return-mapping persistence.
+- The extension's reminder handler through cadence changes, duplicate events, per-app progress, midnight reset and failed-monitor recovery.
+- UI onboarding with manual return, mixed mappings, automatic/manual unlock controls and visible unlock retry.
 
 The full app and test bundle can be compiled without signing with:
 
@@ -44,7 +69,7 @@ For usage reminders, choose each cadence on a physical iPhone, turn protection o
 
 ## Flexible-acknowledgment model
 
-Flexible matching uses a Create ML text classifier built on Apple’s revision-1 BERT contextual embedding. Exact saved phrases still use deterministic matching, and explicit safety rules reject questions, quoted statements, unrelated negative language, and opposite intent before model inference.
+Flexible matching uses a Create ML text classifier built on Apple’s revision-1 BERT contextual embedding. Own words mode always applies explicit safety rules to reject questions, quoted statements, unrelated negative language, and opposite intent before model inference. Specific phrases mode uses deterministic matching with normalization, conversational filler, and limited recognition tolerance; character similarity cannot substitute arbitrary words in a multiword phrase.
 
 The original training sentences and a separate held-out evaluation set live in `ModelTraining`. Retrain and replace the bundled model with:
 

@@ -28,6 +28,8 @@ targets:
     info:
       path: Configuration/OutLoud-Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: OutLoud
         LSApplicationCategoryType: public.app-category.productivity
         NSMicrophoneUsageDescription: OutLoud listens only while you complete a spoken intention.
@@ -70,6 +72,8 @@ targets:
     info:
       path: Configuration/ShieldConfiguration-Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: OutLoud
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
@@ -95,6 +99,8 @@ targets:
     info:
       path: Configuration/ShieldAction-Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: OutLoud
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
@@ -120,6 +126,8 @@ targets:
     info:
       path: Configuration/DeviceActivityMonitor-Info.plist
       properties:
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: OutLoud
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
@@ -140,11 +148,25 @@ targets:
     platform: iOS
     sources:
       - path: Tests
+        excludes:
+          - UI
     dependencies:
       - target: OutLoud
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.clarkohlenbusch.outloud.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+  OutLoudUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/UI
+    dependencies:
+      - target: OutLoud
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.clarkohlenbusch.outloud.ui-tests
         GENERATE_INFOPLIST_FILE: YES
 
 schemes:
@@ -153,6 +175,13 @@ schemes:
       targets:
         OutLoud: all
         OutLoudTests: [test]
+        OutLoudUITests: [test]
+    run:
+      environmentVariables:
+        IDEPreferLogStreaming: YES
     test:
+      environmentVariables:
+        IDEPreferLogStreaming: YES
       targets:
         - OutLoudTests
+        - OutLoudUITests

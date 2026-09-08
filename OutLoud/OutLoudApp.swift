@@ -5,7 +5,15 @@ import UserNotifications
 @main
 struct OutLoudApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @StateObject private var model = AppModel()
+    @StateObject private var model: AppModel
+
+    init() {
+#if DEBUG && targetEnvironment(simulator)
+        _model = StateObject(wrappedValue: UITestScenario.makeModel() ?? AppModel())
+#else
+        _model = StateObject(wrappedValue: AppModel())
+#endif
+    }
 
     var body: some Scene {
         WindowGroup {

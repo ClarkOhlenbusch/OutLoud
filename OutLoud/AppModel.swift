@@ -23,9 +23,12 @@ final class AppModel: ObservableObject {
     @Published var usageReminderInterval: UsageReminderInterval
     @Published private(set) var isRequestingScreenTimeAuthorization = false
     @Published var errorMessage: String?
+    @Published private(set) var challengeErrorMessage: String?
     @Published var demoSelectedApps: Set<String> = ["Instagram", "TikTok"]
+    private let demoModeOverride: Bool?
 
-    init() {
+    init(demoMode: Bool? = nil) {
+        demoModeOverride = demoMode
         selection = SharedSettings.selection
         phrase = SharedSettings.phrases.joined(separator: "\n")
         acceptsSimilarAcknowledgements = SharedSettings.acceptsSimilarAcknowledgements
@@ -62,10 +65,11 @@ final class AppModel: ObservableObject {
     }
 
     var isDemoMode: Bool {
+        if let demoModeOverride { return demoModeOverride }
 #if targetEnvironment(simulator)
-        true
+        return true
 #else
-        ProcessInfo.processInfo.arguments.contains("--demo")
+        return ProcessInfo.processInfo.arguments.contains("--demo")
 #endif
     }
 
@@ -204,17 +208,16 @@ final class AppModel: ObservableObject {
         return returnDestination(for: token)
     }
 
-    func setReturnDestination(_ destination: ReturnDestination, for token: ApplicationToken) {
-        if let index = returnMappings.firstIndex(where: { $0.applicationToken == token }) {
-            returnMappings[index].destination = destination
-        } else {
+    func setReturnDestination(_ destination: ReturnDestination?, for token: ApplicationToken) {
+        returnMappings.removeAll { $0.applicationToken == token }
+        if let destination {
             returnMappings.append(
                 ApplicationReturnMapping(applicationToken: token, destination: destination)
             )
         }
         SharedSettings.returnMappings = returnMappings
         OutLoudLog.screenTime.info(
-            "Saved automatic return destination: \(destination.displayName, privacy: .public)"
+            "Saved return destination: \(destination?.displayName ?? "manual", privacy: .public)"
         )
         if usageRemindersEnabled {
             refreshUsageReminderMonitoring()
@@ -226,6 +229,7 @@ final class AppModel: ObservableObject {
         OutLoudLog.screenTime.info("Protection changed; enabled: \(enabled, privacy: .public)")
         guard !isDemoMode else { return }
         SharedSettings.protectionEnabled = enabled
+        AccessWindowManager.clear()
         enabled ? ShieldManager.applySavedSelection() : ShieldManager.clear()
         if enabled {
             Task {
@@ -247,9 +251,8 @@ final class AppModel: ObservableObject {
     }
 
     func selectUsageReminderInterval(_ interval: UsageReminderInterval) async {
-        let allowed = (try? await UNUserNotificationCenter.current().requestAuthorization(
-            options: [.alert, .sound]
-        )) ?? false
+        errorMessage = nil
+        let allowed = await NotificationPermissionClient.request()
         guard allowed else {
             errorMessage = "Notifications are turned off. Allow notifications for OutLoud in Settings to use usage reminders."
             return
@@ -304,13 +307,15 @@ final class AppModel: ObservableObject {
 
     func refreshPendingChallenge() {
         authorizationStatus = AuthorizationCenter.shared.authorizationStatus
-        if let expiration = SharedSettings.unlockExpiration, expiration <= Date() {
+        if SharedSettings.accessWindows.contains(where: { $0.expiration <= ScreenTimeClient.current.now() })
+            || (SharedSettings.unlockExpiration.map { $0 <= ScreenTimeClient.current.now() } ?? false) {
             OutLoudLog.screenTime.info("Expired access window found while app became active; reapplying shields")
-            SharedSettings.unlockExpiration = nil
-            ShieldManager.applySavedSelection()
+            AccessWindowManager.expire()
         }
         if let pending = SharedSettings.pendingChallenge {
-            challengeSessionID = SharedSettings.challengeRequestID ?? UUID()
+            let requestID = SharedSettings.challengeRequestID ?? UUID()
+            if challengeSessionID != requestID { challengeErrorMessage = nil }
+            challengeSessionID = requestID
             pendingChallenge = pending
             OutLoudLog.challenge.info(
                 "Restored pending challenge; kind: \(pending.logName, privacy: .public)"
@@ -318,13 +323,16 @@ final class AppModel: ObservableObject {
         } else if SharedSettings.challengeRequested {
             // Fall back to releasing the complete saved selection when the
             // originating Screen Time token could not be restored.
-            challengeSessionID = SharedSettings.challengeRequestID ?? UUID()
+            let requestID = SharedSettings.challengeRequestID ?? UUID()
+            if challengeSessionID != requestID { challengeErrorMessage = nil }
+            challengeSessionID = requestID
             pendingChallenge = .selection
             OutLoudLog.challenge.notice("Restored pending challenge through selection fallback")
         }
     }
 
     func beginPractice() {
+        challengeErrorMessage = nil
         savePhrase()
         SharedSettings.pendingChallenge = nil
         challengeSessionID = UUID()
@@ -334,55 +342,64 @@ final class AppModel: ObservableObject {
 
     func completeChallenge() -> Bool {
         guard let challenge = pendingChallenge else { return false }
-        SharedSettings.pendingChallenge = nil
+        challengeErrorMessage = nil
         OutLoudLog.challenge.info(
             "Completing challenge; kind: \(challenge.logName, privacy: .public)"
         )
 
         guard challenge != .practice else {
+            SharedSettings.pendingChallenge = nil
             OutLoudLog.challenge.info("Practice challenge completed")
             return true
         }
 
-        let center = DeviceActivityCenter()
-        center.stopMonitoring([SharedSettings.relockActivity])
-
         let calendar = Calendar.current
-        let now = Date()
+        let now = ScreenTimeClient.current.now()
         // Every Visit normally re-arms sooner through Shortcuts. Keep the
         // original 15-minute window as a fallback if that automation is absent.
         let accessWindowDuration = askAgainMode.accessWindowDuration(timerDuration: gracePeriod)
+        // DeviceActivity schedules have whole-second precision. Persist the
+        // same deadline so its end callback cannot arrive before our deadline.
+        let expiration = Date(timeIntervalSince1970:
+            floor(now.addingTimeInterval(accessWindowDuration).timeIntervalSince1970))
         let schedule = DeviceActivitySchedule(
             intervalStart: scheduleComponents(for: now.addingTimeInterval(-1), calendar: calendar),
-            intervalEnd: scheduleComponents(for: now.addingTimeInterval(accessWindowDuration), calendar: calendar),
+            intervalEnd: scheduleComponents(for: expiration, calendar: calendar),
             repeats: false
         )
 
         do {
-            try center.startMonitoring(SharedSettings.relockActivity, during: schedule)
-            SharedSettings.unlockExpiration = now.addingTimeInterval(accessWindowDuration)
-            ShieldManager.release(challenge)
+            let window = AccessWindow(id: UUID(), challenge: challenge, expiration: expiration)
+            try ScreenTimeClient.current.start(window.activity, schedule, [:])
+            let replaced = SharedSettings.accessWindows.filter { $0.challenge == challenge }
+            SharedSettings.accessWindows.removeAll { $0.challenge == challenge }
+            SharedSettings.accessWindows.append(window)
+            if !replaced.isEmpty { ScreenTimeClient.current.stop(replaced.map(\.activity)) }
+            SharedSettings.unlockExpiration = nil
+            ShieldManager.applySavedSelection()
+            SharedSettings.pendingChallenge = nil
             OutLoudLog.screenTime.info(
                 "Access window started; seconds: \(accessWindowDuration, privacy: .public), challenge kind: \(challenge.logName, privacy: .public)"
             )
             return true
         } catch {
-            SharedSettings.unlockExpiration = nil
             ShieldManager.applySavedSelection()
             OutLoudLog.screenTime.error(
                 "Failed to start access window: \(error.localizedDescription, privacy: .public)"
             )
-            errorMessage = "OutLoud couldn’t create the access window. \(error.localizedDescription)"
+            challengeErrorMessage = "Your phrase was accepted, but OutLoud couldn’t unlock the app. Try unlocking again. \(error.localizedDescription)"
             return false
         }
     }
 
     func dismissChallenge() {
+        challengeErrorMessage = nil
         OutLoudLog.challenge.debug("Challenge screen dismissed")
         pendingChallenge = nil
     }
 
     func cancelChallenge() {
+        challengeErrorMessage = nil
         OutLoudLog.challenge.info("Challenge cancelled")
         SharedSettings.pendingChallenge = nil
         pendingChallenge = nil
@@ -421,9 +438,16 @@ final class AppModel: ObservableObject {
             return true
         }
 #endif
-        return (try? await UNUserNotificationCenter.current()
+        return await NotificationPermissionClient.request()
+    }
+}
+
+enum NotificationPermissionClient {
+    static let live: () async -> Bool = {
+        (try? await UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound])) ?? false
     }
+    static var request = live
 }
 
 extension AuthorizationStatus {

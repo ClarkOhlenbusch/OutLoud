@@ -2,6 +2,67 @@ import XCTest
 @testable import OutLoud
 
 final class PhraseMatcherTests: XCTestCase {
+    func testOwnWordsCannotBypassPolicyThroughSavedPhrases() {
+        let rejected = [
+            "I am making a good choice",
+            "I am not making a bad choice",
+            "I am making a bad choice?",
+            "The prompt says I am making a bad choice",
+            "I am making a bad choice but I need to use this app for work"
+        ]
+        for transcript in rejected {
+            XCTAssertFalse(ChallengePhraseMatcher.matches(
+                transcript: transcript,
+                expectedPhrases: ["I am making a bad choice", transcript],
+                acceptsSimilarAcknowledgements: true
+            ), transcript)
+        }
+    }
+
+    func testOwnWordsStillAcceptsAcknowledgements() {
+        for transcript in [
+            "I am making a bad choice",
+            "I'm making a bad choice",
+            "I acknowledge this is a poor decision",
+            "I realize this may not be wise"
+        ] {
+            XCTAssertTrue(ChallengePhraseMatcher.matches(
+                transcript: transcript,
+                expectedPhrases: ["My custom phrase"],
+                acceptsSimilarAcknowledgements: true
+            ), transcript)
+        }
+    }
+
+    func testSpecificPhrasesCanStillUseCustomWording() {
+        XCTAssertTrue(ChallengePhraseMatcher.matches(
+            transcript: "I choose to continue",
+            expectedPhrases: ["I choose to continue"],
+            acceptsSimilarAcknowledgements: false
+        ))
+        XCTAssertFalse(ChallengePhraseMatcher.matches(
+            transcript: "I am making a bad choice",
+            expectedPhrases: ["My custom phrase"],
+            acceptsSimilarAcknowledgements: false
+        ))
+    }
+
+    func testPhraseSimilarityDoesNotAcceptChangedMeaning() {
+        for transcript in [
+            "I am making a good choice",
+            "I am not making a bad choice",
+            "The prompt says I am making a bad choice",
+            "I am making a bad choice but I need to use this app"
+        ] {
+            XCTAssertFalse(PhraseMatcher.matches(
+                transcript: transcript,
+                expected: "I am making a bad choice"
+            ), transcript)
+        }
+        XCTAssertFalse(PhraseMatcher.matches(transcript: "this cannot wait", expected: "this can wait"))
+        XCTAssertFalse(PhraseMatcher.matches(transcript: "this can't wait", expected: "this can wait"))
+    }
+
     func testExactPhraseMatchesIgnoringPunctuationAndCase() {
         XCTAssertTrue(PhraseMatcher.matches(
             transcript: "I am choosing to spend my time here.",

@@ -15,9 +15,18 @@ enum PhraseMatcher {
 
         if heard == target { return true }
 
-        // Speech recognition may add words before or after the phrase. Pad both
-        // sides so short phrases only match complete words, never substrings.
-        if " \(heard) ".contains(" \(target) ") { return true }
+        // Permit conversational filler, but not arbitrary surrounding speech
+        // that could negate, quote, or qualify the saved phrase.
+        var heardWords = heard.split(separator: " ").map(String.init)
+        let targetWords = target.split(separator: " ").map(String.init)
+        while heardWords.count > targetWords.count,
+              let first = heardWords.first, ["okay", "ok", "well"].contains(first) {
+            heardWords.removeFirst()
+        }
+        if heardWords.count > targetWords.count, heardWords.last == "now" {
+            heardWords.removeLast()
+        }
+        if heardWords == targetWords { return true }
 
         let distance = editDistance(heard, target)
         let longest = max(heard.count, target.count)
@@ -27,10 +36,14 @@ enum PhraseMatcher {
            distance == 1 {
             return true
         }
-        // Short speech-recognition substitutions can require several character
-        // edits (for example, "weight" for "wait") even when only one spoken
-        // word was misunderstood.
-        return Double(distance) / Double(longest) <= 0.20
+        // Character similarity does not preserve meaning (bad/good, can/can't).
+        // Multiword phrases allow only known homophones, with no added words.
+        guard heardWords.count == targetWords.count else { return false }
+        let homophones: [Set<String>] = [["wait", "weight"], ["here", "hear"]]
+        return zip(heardWords, targetWords).allSatisfy { heardWord, targetWord in
+            heardWord == targetWord
+                || homophones.contains { $0.contains(heardWord) && $0.contains(targetWord) }
+        }
     }
 
     static func phrases(from value: String) -> [String] {

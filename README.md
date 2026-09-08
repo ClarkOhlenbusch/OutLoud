@@ -34,7 +34,12 @@ Acknowledge that opening the app is a bad choice. OutLoud understands natural ph
 **Specific phrases**<br>
 Prefer exact wording? Add your own phrases and require one of them instead.
 
-After a successful pause, OutLoud unlocks the app temporarily and can send you straight back to it.
+After a successful pause, OutLoud unlocks the app temporarily. Optional auto-return supports Instagram, TikTok, YouTube, Reddit, and X; other individually selected apps work with manual return.
+
+OutLoud checks the completed recognition result after you pause speaking. In a
+noisy environment, tap Done speaking to finish recording. Timed access windows
+are tracked separately, so unlocking another app does not shorten the first
+app's window.
 
 ## A small model with one careful job
 
@@ -44,11 +49,11 @@ OutLoud uses three layers instead of asking a model to decide everything:
 
 | Layer | What it handles |
 | --- | --- |
-| Deterministic matching | An exact saved phrase, including harmless speech-recognition differences. |
+| Deterministic matching | In Specific phrases mode, a saved phrase with normalization and limited speech-recognition tolerance. |
 | Safety policy | Clear acknowledgments are accepted; questions, quoted speech, opposite intent, and necessary-use statements are rejected. |
 | Core ML classifier | Nuanced wording that is relevant but not obvious enough for a rule. |
 
-That final layer is a Create ML text classifier built with transfer learning from Apple's revision-1 BERT contextual embedding. The classifier bundled with OutLoud is only **1.3 MB**; Apple supplies the larger language embedding through iOS, and inference stays on-device.
+Own words mode always applies the safety policy before classification; saved phrases cannot bypass it. That final layer is a Create ML text classifier built with transfer learning from Apple's revision-1 BERT contextual embedding. The classifier bundled with OutLoud is only **1.3 MB**; Apple supplies the larger language embedding through iOS, and inference stays on-device.
 
 ### Current model
 

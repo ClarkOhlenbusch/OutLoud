@@ -3,7 +3,7 @@ import FamilyControls
 import XCTest
 @testable import OutLoud
 
-final class OnboardingStepTests: XCTestCase {
+final class OnboardingStepTests: ScreenTimeFlowTestCase {
     func testStoredValuesRestoreEveryStep() {
         for step in OnboardingStep.allCases {
             XCTAssertEqual(OnboardingStep(storedValue: step.rawValue), step)
@@ -61,6 +61,44 @@ final class OnboardingStepTests: XCTestCase {
         XCTAssertEqual(UsageReminderInterval.fiveMinutes.nextNotificationMinute(after: 73), 75)
         XCTAssertEqual(UsageReminderInterval.fiveMinutes.nextNotificationMinute(after: 75), 80)
         XCTAssertEqual(UsageReminderInterval.tenMinutes.nextNotificationMinute(after: 73), 80)
+    }
+
+    func testChangingReminderCadenceAcceptsTheNextScheduledMilestone() {
+        // Five minutes already reported; switching to ten must accept ten,
+        // not wait for an unscheduled fifteen-minute event.
+        XCTAssertTrue(UsageReminderEvent.isExpected(10, after: 5, interval: .tenMinutes))
+        XCTAssertFalse(UsageReminderEvent.isExpected(15, after: 5, interval: .tenMinutes))
+        XCTAssertTrue(UsageReminderEvent.isExpected(20, after: 10, interval: .tenMinutes))
+        XCTAssertTrue(UsageReminderEvent.isExpected(5, after: 3, interval: .fiveMinutes))
+        XCTAssertTrue(UsageReminderEvent.isExpected(11, after: 10, interval: .oneMinute))
+        XCTAssertFalse(UsageReminderEvent.isExpected(10, after: 10, interval: .tenMinutes))
+    }
+
+    @MainActor
+    func testFailedUnlockPreservesChallengeAndCanRetry() {
+        SharedSettings.pendingChallenge = .selection
+        let model = AppModel()
+        let requestID = model.challengeSessionID
+        system.failuresRemaining = 1
+        let failed = model.completeChallenge()
+        XCTAssertFalse(failed)
+        XCTAssertNotNil(model.challengeErrorMessage)
+        XCTAssertNil(model.errorMessage)
+        XCTAssertEqual(model.pendingChallenge, .selection)
+        XCTAssertEqual(SharedSettings.pendingChallenge, .selection)
+        XCTAssertNil(SharedSettings.unlockExpiration)
+
+        // Returning to OutLoud must keep the same failed challenge and retry UI.
+        model.refreshPendingChallenge()
+        XCTAssertEqual(model.challengeSessionID, requestID)
+        XCTAssertNotNil(model.challengeErrorMessage)
+
+        XCTAssertTrue(model.completeChallenge())
+        XCTAssertNil(model.challengeErrorMessage)
+        XCTAssertNil(SharedSettings.pendingChallenge)
+        XCTAssertEqual(SharedSettings.accessWindows.count, 1)
+        model.dismissChallenge()
+        XCTAssertNil(model.pendingChallenge)
     }
 
     func testStandardAuthorizationGrantsScreenTimeAccess() {

@@ -42,6 +42,16 @@
 		D5C5322835AA3F9535004B61 /* ShieldManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D7BC06160AFC944804E0F2 /* ShieldManager.swift */; };
 		DC5E009A498A45E29789B10D /* ShieldManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77D7BC06160AFC944804E0F2 /* ShieldManager.swift */; };
 		DD72F0C2C893764C93BDBBB3 /* OutLoudDeviceActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B13FF189907372DDB957FCD2 /* OutLoudDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		97DD3BDF02F37E6DE0BAF831 /* CoreFlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4E1E30F7E9E1AE64564CD34 /* CoreFlowUITests.swift */; };
+		E5AA56BD86EBBDC676C5A800 /* ScreenTimeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */; };
+		77C4D7811B64E9704A9B6A22 /* AccessFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7670CC4BE4A5F222CB8DDFFD /* AccessFlowTests.swift */; };
+		D2C682619C75DF873B72CCBB /* SpeechFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C080D7220C945E98970E983 /* SpeechFlowTests.swift */; };
+		8B20BF8C93FBE9351CC1BD43 /* UITestScenario.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8EA3F30CFF815687712FA9F /* UITestScenario.swift */; };
+		B32C5035660E162EA7C23CF7 /* ReminderFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3822F0A4E1BDA1702DD09150 /* ReminderFlowTests.swift */; };
+		16E0290E8A9ACE41857C6381 /* ScreenTimeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */; };
+		11556FFEAF0074A4B896540F /* ScreenTimeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */; };
+		B335A48131265EAD3DE8A24E /* ScreenTimeClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */; };
+		AB89E429DD160C4CD7E878C5 /* FlowTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7028B5ABC3E7BFA5402882E /* FlowTestSupport.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +77,13 @@
 			remoteInfo = OutLoudShieldConfiguration;
 		};
 		792F418B1541443583AE9179 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 00DD82E56C29C9E97EC994B4 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B41620F60444DEF23381C1F8;
+			remoteInfo = OutLoud;
+		};
+		A326F038197D751797B0DD9F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 00DD82E56C29C9E97EC994B4 /* Project object */;
 			proxyType = 1;
@@ -116,12 +133,21 @@
 		E3D459F930552DCF5F1F9934 /* PhraseMatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhraseMatcher.swift; sourceTree = "<group>"; };
 		E8C3754C765FF15B9B6B870C /* OutLoudApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutLoudApp.swift; sourceTree = "<group>"; };
 		FB33241B23BF7A32B073BD16 /* OutLoudTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OutLoudTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3822F0A4E1BDA1702DD09150 /* ReminderFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFlowTests.swift; sourceTree = "<group>"; };
+		7670CC4BE4A5F222CB8DDFFD /* AccessFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessFlowTests.swift; sourceTree = "<group>"; };
+		6D4B229FA1449C97B683DBAF /* OutLoudUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OutLoudUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C080D7220C945E98970E983 /* SpeechFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechFlowTests.swift; sourceTree = "<group>"; };
+		E4E1E30F7E9E1AE64564CD34 /* CoreFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreFlowUITests.swift; sourceTree = "<group>"; };
+		D7028B5ABC3E7BFA5402882E /* FlowTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowTestSupport.swift; sourceTree = "<group>"; };
+		F8EA3F30CFF815687712FA9F /* UITestScenario.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UITestScenario.swift; sourceTree = "<group>"; };
+		BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenTimeClient.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		079E2B71FEC4DCA02057C302 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */,
 				E3D459F930552DCF5F1F9934 /* PhraseMatcher.swift */,
 				A11000000000000000000001 /* PrivacyInfo.xcprivacy */,
 				BDD61CB0DA2EF3B57AEEC886 /* SharedSettings.swift */,
@@ -149,6 +175,7 @@
 		4E44A3AC57743ADE1AF09D63 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				6D4B229FA1449C97B683DBAF /* OutLoudUITests.xctest */,
 				D342450E38A1DADDA1D695F0 /* OutLoud.app */,
 				B13FF189907372DDB957FCD2 /* OutLoudDeviceActivityMonitor.appex */,
 				D364C827553866AE6B332EB2 /* OutLoudShieldAction.appex */,
@@ -198,6 +225,11 @@
 		E3676C52B5A50346156E4A22 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				7670CC4BE4A5F222CB8DDFFD /* AccessFlowTests.swift */,
+				D7028B5ABC3E7BFA5402882E /* FlowTestSupport.swift */,
+				3822F0A4E1BDA1702DD09150 /* ReminderFlowTests.swift */,
+				6C080D7220C945E98970E983 /* SpeechFlowTests.swift */,
+				B04596368C707D62CD1300E7 /* UI */,
 				A10400000000000000000001 /* OnboardingStepTests.swift */,
 				DC6715F95F33E65B1DE0CEDF /* PhraseMatcherTests.swift */,
 			);
@@ -207,6 +239,7 @@
 		E810B1409E9A13F565FF1675 /* OutLoud */ = {
 			isa = PBXGroup;
 			children = (
+				F8EA3F30CFF815687712FA9F /* UITestScenario.swift */,
 				D5D3EF8D391AF9C22BD4DAF9 /* AppModel.swift */,
 				A10800000000000000000001 /* Assets.xcassets */,
 				9FBB2481D1E55F0B325B9987 /* ChallengeView.swift */,
@@ -219,6 +252,25 @@
 				89A399F878316B969DA475E8 /* SpeechChallengeController.swift */,
 			);
 			path = OutLoud;
+			sourceTree = "<group>";
+		};
+		B04596368C707D62CD1300E7 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				E4E1E30F7E9E1AE64564CD34 /* CoreFlowUITests.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		BCA30B39657D4662CB7E4749 = {
+			isa = PBXGroup;
+			children = (
+				C04CC9224022B50BF19DFCCB /* Extensions */,
+				E810B1409E9A13F565FF1675 /* OutLoud */,
+				079E2B71FEC4DCA02057C302 /* Shared */,
+				E3676C52B5A50346156E4A22 /* Tests */,
+				4E44A3AC57743ADE1AF09D63 /* Products */,
+			);
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -318,6 +370,24 @@
 			productReference = B13FF189907372DDB957FCD2 /* OutLoudDeviceActivityMonitor.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		40DE1135E041B9EEEEDF21AB /* OutLoudUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7375400876A2F17F782DB175 /* Build configuration list for PBXNativeTarget "OutLoudUITests" */;
+			buildPhases = (
+				75F05EB789C5F1AA03515CA7 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				8347ED0E67DEE483EF92C9C1 /* PBXTargetDependency */,
+			);
+			name = OutLoudUITests;
+			packageProductDependencies = (
+			);
+			productName = OutLoudUITests;
+			productReference = 6D4B229FA1449C97B683DBAF /* OutLoudUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -394,6 +464,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				40DE1135E041B9EEEEDF21AB /* OutLoudUITests */,
 				B41620F60444DEF23381C1F8 /* OutLoud */,
 				C70DF7B21ACB6C1F07304A79 /* OutLoudDeviceActivityMonitor */,
 				2CD2D19B8921716189084E9B /* OutLoudShieldAction */,
@@ -445,6 +516,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				77C4D7811B64E9704A9B6A22 /* AccessFlowTests.swift in Sources */,
+				AB89E429DD160C4CD7E878C5 /* FlowTestSupport.swift in Sources */,
+				B32C5035660E162EA7C23CF7 /* ReminderFlowTests.swift in Sources */,
+				D2C682619C75DF873B72CCBB /* SpeechFlowTests.swift in Sources */,
 				A10600000000000000000001 /* OnboardingStepTests.swift in Sources */,
 				8ABD01E4F74357E481ABE0E2 /* PhraseMatcherTests.swift in Sources */,
 			);
@@ -454,6 +529,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B335A48131265EAD3DE8A24E /* ScreenTimeClient.swift in Sources */,
 				71558AAEC8748D67B67958DF /* PhraseMatcher.swift in Sources */,
 				1137D79F78C9E6CADC3C5CD8 /* SharedSettings.swift in Sources */,
 				7B7862A58045CA30DBD069EB /* ShieldConfigurationExtension.swift in Sources */,
@@ -465,6 +541,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				11556FFEAF0074A4B896540F /* ScreenTimeClient.swift in Sources */,
 				60FE573AE6CCA1B24EE3B214 /* PhraseMatcher.swift in Sources */,
 				7E92245224379D555D6B4243 /* SharedSettings.swift in Sources */,
 				1947D3CE715F11AB414854E8 /* ShieldActionExtension.swift in Sources */,
@@ -476,6 +553,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				16E0290E8A9ACE41857C6381 /* ScreenTimeClient.swift in Sources */,
+				8B20BF8C93FBE9351CC1BD43 /* UITestScenario.swift in Sources */,
 				0B32671A4FABCCB652ADCD05 /* FlexibleAcknowledgementClassifier.mlmodel in Sources */,
 				9A3423CDC37876C8D202472D /* AppModel.swift in Sources */,
 				24A79A97B626AFD78612C482 /* ChallengeView.swift in Sources */,
@@ -495,10 +574,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E5AA56BD86EBBDC676C5A800 /* ScreenTimeClient.swift in Sources */,
 				C222F01AEE0BD28FFB403B3A /* DeviceActivityMonitorExtension.swift in Sources */,
 				77B9268FC601FD1BA1A4343B /* PhraseMatcher.swift in Sources */,
 				96AAB44CF05EEE1EFA187006 /* SharedSettings.swift in Sources */,
 				4AC9DFD60FA83CF2E55576D3 /* ShieldManager.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		75F05EB789C5F1AA03515CA7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				97DD3BDF02F37E6DE0BAF831 /* CoreFlowUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -524,6 +612,11 @@
 			isa = PBXTargetDependency;
 			target = 2CD2D19B8921716189084E9B /* OutLoudShieldAction */;
 			targetProxy = 117BD45E0DE42A75EA94A8D4 /* PBXContainerItemProxy */;
+		};
+		8347ED0E67DEE483EF92C9C1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B41620F60444DEF23381C1F8 /* OutLoud */;
+			targetProxy = A326F038197D751797B0DD9F /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -845,6 +938,40 @@
 			};
 			name = Release;
 		};
+		2B9E97629F61763F82968105 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.clarkohlenbusch.outloud.ui-tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OutLoud;
+			};
+			name = Debug;
+		};
+		4A124239656993E03B18223E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = "com.clarkohlenbusch.outloud.ui-tests";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OutLoud;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -898,6 +1025,15 @@
 			buildConfigurations = (
 				45B88829D70A2A2E728F6764 /* Debug */,
 				9BED596D48818A29CBA2EA49 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7375400876A2F17F782DB175 /* Build configuration list for PBXNativeTarget "OutLoudUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B9E97629F61763F82968105 /* Debug */,
+				4A124239656993E03B18223E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
