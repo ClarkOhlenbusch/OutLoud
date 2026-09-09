@@ -3,6 +3,7 @@ import UIKit
 
 struct ChallengeView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var speech = SpeechChallengeController()
     @State private var completed = false
     @State private var started = false
@@ -40,6 +41,13 @@ struct ChallengeView: View {
                             .lineLimit(2)
                             .padding(.horizontal, 18)
                             .transition(.opacity)
+                    }
+
+                    if !completed, let message = speech.statusMessage {
+                        Text(message)
+                            .font(.callout)
+                            .foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
                     }
                 }
 
@@ -129,6 +137,9 @@ struct ChallengeView: View {
             speech.stop()
             returnTask?.cancel()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background && !completed { speech.pauseForBackground() }
+        }
     }
 
     private func startListening() {
@@ -160,6 +171,8 @@ struct ChallengeView: View {
     private var completionTitle: String {
         if completed { return isPractice ? "That’s it" : "Unlocked" }
         if model.challengeErrorMessage != nil { return "Couldn’t unlock" }
+        if speech.errorMessage != nil { return "Couldn’t listen" }
+        if speech.isRecovering { return "Reconnecting" }
         if speech.isFinalizing { return "Checking phrase" }
         return speech.isListening ? "Listening" : "Getting ready"
     }

@@ -71,4 +71,30 @@ final class CoreFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
         XCTAssertFalse(retry.exists)
     }
+
+    func testSpeechServiceInterruptionAutomaticallyRecovers() {
+        launch("speech-interruption")
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Try again"].exists)
+    }
+
+    func testRepeatedSpeechInterruptionShowsHelpfulRetryAndRecovers() {
+        launch("speech-interruption-repeated")
+        let retry = app.buttons["Try again"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Couldn’t listen"].exists)
+        XCTAssertTrue(app.staticTexts["“I am wasting my time on Instagram.”"].exists)
+        let error = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Speech recognition was interrupted")).firstMatch
+        XCTAssertTrue(error.exists)
+        XCTAssertFalse(app.staticTexts["Getting ready"].exists)
+        XCTAssertFalse(app.staticTexts["Unlocked"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Speech interruption recovery exhausted"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        retry.tap()
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+        XCTAssertFalse(retry.exists)
+        XCTAssertFalse(error.exists)
+    }
 }

@@ -23,6 +23,10 @@ enum UITestScenario {
             selection.applicationTokens = [a, b]
             SharedSettings.selection = selection
             SharedSettings.acceptsSimilarAcknowledgements = true
+            if scenario == "speech-interruption" || scenario == "speech-interruption-repeated" {
+                SharedSettings.acceptsSimilarAcknowledgements = false
+                SharedSettings.phrases = ["I am wasting my time on Instagram."]
+            }
             SharedSettings.onboardingStep = OnboardingStep.apps.rawValue
             SharedSettings.onboardingCompleted = scenario != "onboarding"
             SharedSettings.protectionEnabled = true
@@ -63,11 +67,20 @@ enum UITestScenario {
 
 @MainActor
 private final class ScriptedSpeechCapture: SpeechCapture {
+    private var attempts = 0
     func requestPermissions(_ completion: @escaping (Bool) -> Void) { completion(true) }
     func start(phrases: [String], receive: @escaping (SpeechCaptureEvent) -> Void) throws {
+        attempts += 1
+        let interrupt = (UITestScenario.scenario == "speech-interruption" && attempts == 1)
+            || (UITestScenario.scenario == "speech-interruption-repeated" && attempts <= 2)
+        let phrase = phrases.first ?? "I am making a bad choice"
         Task {
             try? await Task.sleep(nanoseconds: 200_000_000)
-            receive(.transcript("I am making a bad choice", isFinal: true))
+            if interrupt {
+                receive(.failure(NSError(domain: "kAFAssistantErrorDomain", code: 1107)))
+            } else {
+                receive(.transcript(phrase, isFinal: true))
+            }
         }
     }
     func finish() {}

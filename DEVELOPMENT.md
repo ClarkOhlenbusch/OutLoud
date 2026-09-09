@@ -52,6 +52,7 @@ The current unit tests cover:
 - Usage-reminder interval persistence, independent monitor generations, notification copy, and event-name parsing.
 - Own words versus Specific phrases routing, opposite-intent phrase regressions, reminder cadence changes, and retrying a failed unlock without losing the challenge.
 - Partial/final speech sequences, cancellation, stale callbacks, denied permissions, startup errors and finalization timeout.
+- Speech-service reconnection, bounded retries, fresh-phrase acceptance, background/cancellation during recovery, and audio interruption/media reset handling. See the [error 1107 investigation](docs/SPEECH_1107_INVESTIGATION.md).
 - Independent app access windows, expiry, stale monitor callbacks, practice, cancellation, relaunch and return-mapping persistence.
 - The extension's reminder handler through cadence changes, duplicate events, per-app progress, midnight reset and failed-monitor recovery.
 - UI onboarding with manual return, mixed mappings, automatic/manual unlock controls and visible unlock retry.

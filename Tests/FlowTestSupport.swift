@@ -71,6 +71,7 @@ final class FakeSpeechCapture: SpeechCapture {
     var receivers: [(SpeechCaptureEvent) -> Void] = []
     var startError: Error?
     var starts = 0
+    var onStart: (() -> Void)?
     var finishes = 0
     var stops = 0
     func requestPermissions(_ completion: @escaping (Bool) -> Void) { permissions.append(completion) }
@@ -78,6 +79,7 @@ final class FakeSpeechCapture: SpeechCapture {
         starts += 1
         if let startError { throw startError }
         receivers.append(receive)
+        onStart?()
     }
     func finish() { finishes += 1 }
     func stop() { stops += 1 }

@@ -50,6 +50,14 @@ existing OutLoud configuration. No transcripts or app tokens need to be logged.
 - Reopen OutLoud with a pending shield challenge, then cancel it. Reopening again
   must not resurrect the cancelled challenge. Practice must not unlock any app.
 
+- For speech-service failures 1107/1101, verify one reconnect, the instruction
+  to repeat the full phrase, and acceptance only of a fresh final result. A
+  repeated failure must stop with Couldn’t listen and a working Try again.
+- Use Settings > Developer > Reset Media Services during capture. Verify no
+  automatic recording follows the reset; Try again must start a fresh session.
+  Also cancel/background during Reconnecting and confirm recording stays off.
+  See [the error 1107 investigation](SPEECH_1107_INVESTIGATION.md).
+
 ## Independent access windows
 
 - Choose a 15-minute timer. Unlock A at time T, then B at T+5 minutes. B must
