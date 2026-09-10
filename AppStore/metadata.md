@@ -8,7 +8,7 @@
 - Primary language: English (U.S.)
 - Bundle ID: `com.clarkohlenbusch.outloud`
 - SKU: `OUTLOUD-IOS-001`
-- Version: `1.0.0`
+- Version: `1.0.1`
 - Price: Free
 - Primary category: Productivity
 - Secondary category: Health & Fitness

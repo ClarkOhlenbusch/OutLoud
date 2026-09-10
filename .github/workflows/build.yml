@@ -9,6 +9,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v7
+      - name: Verify version consistency and open release train
+        run: ./Scripts/version.sh verify
       - name: Build app and tests
         run: >-
           xcodebuild -quiet

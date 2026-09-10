@@ -1,27 +1,27 @@
 # OutLoud App Store Connect submission packet
 
-Prepared September 4, 2026.
+Prepared September 9, 2026.
 
 ## Current release status
 
 - App Store Connect app: [OutLoud: Mindful App Pause](https://appstoreconnect.apple.com/apps/6804832298/distribution/ios/version/inflight)
 - Apple app ID: `6804832298`
 - Bundle ID: `com.clarkohlenbusch.outloud`
-- Previously uploaded build: `1.0.0 (3)` (rejected under Guideline 2.1(a))
-- Next build to upload: `1.0.0 (4)`; this fixes Screen Time authorization on current iPadOS and makes usage reminders follow cumulative daily app time
-- Build status: uploaded September 4, 2026; wait for App Store Connect processing to complete before selecting it
+- Approved / Closed train: `1.0.0`
+- Next build to upload: `1.0.1 (5)`
 - Distribution entitlements: approved for the app and all three extensions
 - Screenshots: four App Store-valid 6.5-inch JPEGs in [Screenshots-6.5](Screenshots-6.5)
 
-## 1. Match the App Store version to the binary
+## 1. Create the new App Store Version
 
-On **Distribution > iOS App > 1.0 Prepare for Submission**, change the **Version** field from `1.0` to:
+Because version `1.0.0` is already approved, its pre-release train is closed (Apple Error 90062 / 90186). On App Store Connect:
 
-```text
-1.0.0
-```
-
-Click **Save** before selecting the build. The uploaded binary's `CFBundleShortVersionString` is `1.0.0`, and Apple says the App Store Connect version should match it.
+1. Under **iOS App**, click the **+ (Add Version or Platform)** button.
+2. Enter the new version number:
+   ```text
+   1.0.1
+   ```
+3. Click **Create**. The binary's `CFBundleShortVersionString` is `1.0.1`, matching this new version.
 
 ## 2. Complete App Information
 
@@ -143,7 +143,7 @@ screen time,mindfulness,focus,digital wellbeing,habits,social media,app blocker,
 | --- | --- |
 | Support URL | `https://clarkohlenbusch.github.io/OutLoud/support/` |
 | Marketing URL | `https://clarkohlenbusch.github.io/OutLoud/` |
-| Version | `1.0.0` |
+| Version | `1.0.1` |
 | Copyright | `2026 Clark Ohlenbusch` |
 | Routing App Coverage File | Leave empty |
 

@@ -1,0 +1,114 @@
+name: App Store Build & Validate
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump component (none, patch, minor, major)'
+        required: true
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - patch
+          - minor
+          - major
+      upload_to_testflight:
+        description: 'Upload directly to TestFlight if secrets are available'
+        required: true
+        default: false
+        type: boolean
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate-and-build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Bump version if requested
+        if: ${{ github.event.inputs.bump != 'none' && github.event.inputs.bump != '' }}
+        run: |
+          ./Scripts/version.sh bump "${{ github.event.inputs.bump }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore: bump version to $(./Scripts/version.sh get | grep FULL_VERSION | cut -d= -f2)"
+          git push
+
+      - name: Verify release version and open train
+        run: ./Scripts/version.sh verify
+
+      - name: Run test suites and regressions
+        shell: bash
+        run: |
+          test_device=$(xcrun simctl list devices available -j | ruby -rjson -e 'devices = JSON.parse(STDIN.read).fetch("devices").values.flatten; puts devices.find { |d| d.fetch("name").start_with?("iPhone") }.fetch("udid")')
+          xcodebuild -quiet \
+            -project OutLoud.xcodeproj -scheme OutLoud \
+            -destination "platform=iOS Simulator,id=$test_device" \
+            -derivedDataPath build/SimulatorDerivedData \
+            -parallel-testing-enabled NO \
+            -resultBundlePath build/SimulatorTests.xcresult \
+            CODE_SIGNING_ALLOWED=NO clean test
+          python3 Scripts/verify-regression-results.py build/SimulatorTests.xcresult
+
+      - name: Archive release build
+        run: |
+          xcodebuild archive \
+            -project OutLoud.xcodeproj \
+            -scheme OutLoud \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/OutLoud.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Setup App Store Connect API Key (if provided)
+        id: setup-key
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+        run: |
+          if [ -n "$KEY_ID" ] && [ -n "$ISSUER_ID" ] && [ -n "$KEY_BASE64" ]; then
+            mkdir -p ~/.appstoreconnect/private_keys
+            echo "$KEY_BASE64" | base64 --decode > ~/.appstoreconnect/private_keys/AuthKey_${KEY_ID}.p8
+            echo "has_key=true" >> $GITHUB_OUTPUT
+            echo "App Store Connect API key configured."
+          else
+            echo "has_key=false" >> $GITHUB_OUTPUT
+            echo "No App Store Connect secrets configured; skipping direct upload."
+          fi
+
+      - name: Validate build with App Store Connect
+        if: steps.setup-key.outputs.has_key == 'true'
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcrun altool --validate-app \
+            -f build/OutLoud.xcarchive \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID" \
+            --type ios
+
+      - name: Upload to TestFlight
+        if: steps.setup-key.outputs.has_key == 'true' && (github.event.inputs.upload_to_testflight == 'true' || startsWith(github.ref, 'refs/tags/v'))
+        env:
+          KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app \
+            -f build/OutLoud.xcarchive \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID" \
+            --type ios
+
+      - name: Upload xcarchive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OutLoud-${{ github.sha }}.xcarchive
+          path: build/OutLoud.xcarchive
+          retention-days: 14
