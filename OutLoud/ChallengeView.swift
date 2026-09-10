@@ -153,7 +153,7 @@ struct ChallengeView: View {
 
     private var challengePrompt: String {
         if model.acceptsSimilarAcknowledgements {
-            return "Acknowledge this is a bad choice"
+            return "In your own words, acknowledge this is a bad choice"
         }
         if model.phrases.count == 1 {
             return "“\(model.phrases[0])”"
