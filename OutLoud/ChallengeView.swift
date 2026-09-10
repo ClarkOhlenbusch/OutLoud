@@ -58,7 +58,7 @@ struct ChallengeView: View {
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 24)
 
-                    Button(model.challengeErrorMessage == nil ? "Try again" : "Try unlocking again") {
+                    Button(model.challengeErrorMessage == nil ? "Restart listening" : "Try unlocking again") {
                         if model.challengeErrorMessage != nil {
                             finishChallenge()
                         } else {
@@ -171,7 +171,7 @@ struct ChallengeView: View {
     private var completionTitle: String {
         if completed { return isPractice ? "That’s it" : "Unlocked" }
         if model.challengeErrorMessage != nil { return "Couldn’t unlock" }
-        if speech.errorMessage != nil { return "Couldn’t listen" }
+        if speech.errorMessage != nil { return speech.errorTitle }
         if speech.isRecovering { return "Reconnecting" }
         if speech.isFinalizing { return "Checking phrase" }
         return speech.isListening ? "Listening" : "Getting ready"

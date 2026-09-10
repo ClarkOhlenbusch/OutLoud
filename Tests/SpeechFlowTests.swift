@@ -7,6 +7,145 @@ final class SpeechFlowTests: XCTestCase {
     private var interruption: NSError { NSError(domain: "kAFAssistantErrorDomain", code: 1107) }
 
     @MainActor
+    func testMismatchesKeepListeningUntilFinalMatchInBothModes() async {
+        for ownWords in [false, true] {
+            let capture = FakeSpeechCapture()
+            let expected = phrase
+            let controller = SpeechChallengeController(capture: capture, classify: {
+                $0 == expected ? .accepted : .rejected
+            }, isApplicationActive: { true })
+            var matches = 0
+            controller.requestAndStart(expectedPhrases: [expected], acceptsSimilarAcknowledgements: ownWords) { matches += 1 }
+            capture.permissions[0](true)
+            for attempt in 0..<3 {
+                let old = capture.receivers[attempt]
+                old(.transcript("I need this for work", isFinal: true))
+                await waitForClassification(controller)
+                XCTAssertEqual(capture.starts, attempt + 2)
+                XCTAssertEqual(capture.permissions.count, 1)
+                XCTAssertTrue(controller.isListening)
+                XCTAssertFalse(controller.isFinalizing)
+                XCTAssertNil(controller.errorMessage)
+                XCTAssertNotNil(controller.statusMessage)
+                XCTAssertEqual(controller.transcript, "")
+                old(.transcript(expected, isFinal: true))
+                old(.failure(interruption))
+                XCTAssertTrue(controller.isListening)
+                XCTAssertEqual(matches, 0)
+            }
+            capture.receivers.last?(.transcript(expected, isFinal: false))
+            XCTAssertEqual(matches, 0)
+            capture.receivers.last?(.transcript(expected, isFinal: true))
+            await waitForClassification(controller)
+            XCTAssertEqual(matches, 1)
+            XCTAssertFalse(controller.isListening)
+            XCTAssertNil(controller.statusMessage)
+        }
+    }
+
+    @MainActor
+    func testRejectionCannotRestartAfterCancellationOrBackground() async {
+        for background in [false, true] {
+            let capture = FakeSpeechCapture()
+            var continuation: CheckedContinuation<AcknowledgementMatch, Never>?
+            let started = expectation(description: "Inference started")
+            let returned = expectation(description: "Inference returned")
+            let controller = SpeechChallengeController(capture: capture, classify: { _ in
+                let result = await withCheckedContinuation { continuation = $0; started.fulfill() }
+                returned.fulfill()
+                return result
+            }, isApplicationActive: { true })
+            controller.requestAndStart(expectedPhrases: [], acceptsSimilarAcknowledgements: true) { XCTFail("Rejected") }
+            capture.permissions[0](true)
+            capture.receivers[0](.transcript("I need this for work", isFinal: true))
+            await fulfillment(of: [started], timeout: 2)
+            if background { controller.pauseForBackground() } else { controller.stop() }
+            continuation?.resume(returning: .rejected)
+            await fulfillment(of: [returned], timeout: 2)
+            XCTAssertEqual(capture.starts, 1)
+            XCTAssertFalse(controller.isListening)
+        }
+    }
+
+    @MainActor
+    func testRejectionWhileInactiveDoesNotRestartMicrophone() async {
+        let capture = FakeSpeechCapture()
+        let controller = SpeechChallengeController(capture: capture, classify: { _ in .rejected }, isApplicationActive: { false })
+        controller.requestAndStart(expectedPhrases: [], acceptsSimilarAcknowledgements: true) { XCTFail("Rejected") }
+        capture.permissions[0](true)
+        capture.receivers[0](.transcript("I need this for work", isFinal: true))
+        await waitForClassification(controller)
+        XCTAssertEqual(capture.starts, 1)
+        XCTAssertFalse(controller.isListening)
+        XCTAssertNotNil(controller.errorMessage)
+    }
+
+    @MainActor
+    private func waitForClassification(_ controller: SpeechChallengeController) async {
+        let finished = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in !controller.isFinalizing }, object: nil)
+        await fulfillment(of: [finished], timeout: 2)
+    }
+
+    @MainActor
+    func testUnavailableOwnWordsNeverUnlocksAndExplainsRetry() async {
+        let capture = FakeSpeechCapture()
+        let controller = SpeechChallengeController(capture: capture, classify: { _ in .unavailable })
+        controller.requestAndStart(expectedPhrases: ["I am making a bad choice"], acceptsSimilarAcknowledgements: true) { XCTFail("Unavailable model") }
+        capture.permissions[0](true)
+        capture.receivers[0](.transcript("I am making a bad choice", isFinal: true))
+        await waitForClassification(controller)
+        XCTAssertTrue(controller.errorMessage?.contains("Own words couldn’t load") == true)
+    }
+
+    @MainActor
+    func testLateClassificationCannotUnlockAfterCancellationOrReplacement() async {
+        for replace in [false, true] {
+            let capture = FakeSpeechCapture()
+            var continuation: CheckedContinuation<AcknowledgementMatch, Never>?
+            let started = expectation(description: "Inference started")
+            let returned = expectation(description: "Inference returned")
+            let controller = SpeechChallengeController(capture: capture, classify: { _ in
+                let result = await withCheckedContinuation { continuation = $0; started.fulfill() }
+                returned.fulfill()
+                return result
+            })
+            controller.requestAndStart(expectedPhrases: [], acceptsSimilarAcknowledgements: true) { XCTFail("Stale result") }
+            capture.permissions[0](true)
+            capture.receivers[0](.transcript("I am making a bad choice", isFinal: true))
+            await fulfillment(of: [started], timeout: 2)
+            if replace {
+                controller.requestAndStart(expectedPhrases: ["this can wait"], acceptsSimilarAcknowledgements: false) { XCTFail("New session has no final speech") }
+                capture.permissions[1](true)
+            } else { controller.pauseForBackground() }
+            continuation?.resume(returning: .accepted)
+            await fulfillment(of: [returned], timeout: 2)
+            XCTAssertEqual(controller.isListening, replace)
+        }
+    }
+
+    @MainActor
+    func testSlowInferenceTimesOutAndLateAcceptanceIsIgnored() async {
+        let capture = FakeSpeechCapture()
+        var continuation: CheckedContinuation<AcknowledgementMatch, Never>?
+        let started = expectation(description: "Inference started")
+        let returned = expectation(description: "Inference returned")
+        let controller = SpeechChallengeController(capture: capture, classify: { _ in
+            let result = await withCheckedContinuation { continuation = $0; started.fulfill() }
+            returned.fulfill()
+            return result
+        }, classificationTimeout: 10_000_000)
+        controller.requestAndStart(expectedPhrases: [], acceptsSimilarAcknowledgements: true) { XCTFail("Timed out") }
+        capture.permissions[0](true)
+        capture.receivers[0](.transcript("I am making a bad choice", isFinal: true))
+        await fulfillment(of: [started], timeout: 2)
+        await waitForClassification(controller)
+        XCTAssertTrue(controller.errorMessage?.contains("took too long") == true)
+        continuation?.resume(returning: .accepted)
+        await fulfillment(of: [returned], timeout: 2)
+        XCTAssertFalse(controller.isListening)
+    }
+
+    @MainActor
     private func waitForRecovery(_ capture: FakeSpeechCapture, starts: Int = 2) async {
         let restarted = expectation(description: "Speech restarted")
         capture.onStart = { if capture.starts == starts { restarted.fulfill() } }
@@ -65,7 +204,8 @@ final class SpeechFlowTests: XCTestCase {
         await waitForRecovery(capture)
         capture.receivers.last?(.transcript("I need this for work", isFinal: true))
         XCTAssertEqual(matches, 0)
-        XCTAssertNotNil(controller.errorMessage)
+        XCTAssertNil(controller.errorMessage)
+        XCTAssertTrue(controller.isListening)
     }
 
     @MainActor
@@ -83,7 +223,7 @@ final class SpeechFlowTests: XCTestCase {
         capture.receivers.last?(.failure(interruption))
         XCTAssertFalse(controller.isRecovering)
         XCTAssertFalse(controller.isListening)
-        XCTAssertTrue(controller.errorMessage?.contains("Tap Try again") == true)
+        XCTAssertTrue(controller.errorMessage?.contains("Tap Restart listening") == true)
         XCTAssertFalse(controller.errorMessage?.contains("1107") == true)
         start()
         XCTAssertNil(controller.errorMessage)
@@ -214,9 +354,12 @@ final class SpeechFlowTests: XCTestCase {
     }
 
     @MainActor
-    func testPartialAcknowledgementFollowedByNecessaryUseNeverUnlocks() {
+    func testPartialAcknowledgementFollowedByNecessaryUseNeverUnlocks() async {
         let capture = FakeSpeechCapture()
-        let controller = SpeechChallengeController(capture: capture)
+        let controller = SpeechChallengeController(capture: capture, classify: { text in
+            XCTAssertEqual(text, "I am making a bad choice but I need this for work")
+            return .rejected
+        }, isApplicationActive: { true })
         var matches = 0
         controller.requestAndStart(expectedPhrases: [], acceptsSimilarAcknowledgements: true) { matches += 1 }
         capture.permissions[0](true)
@@ -225,14 +368,16 @@ final class SpeechFlowTests: XCTestCase {
         XCTAssertTrue(controller.isListening)
         capture.receivers[0](.transcript("I am making a bad choice but I need this for work", isFinal: true))
         XCTAssertEqual(matches, 0)
-        XCTAssertNotNil(controller.errorMessage)
-        XCTAssertFalse(controller.isListening)
+        await waitForClassification(controller)
+        XCTAssertNil(controller.errorMessage)
+        XCTAssertTrue(controller.isListening)
+        XCTAssertEqual(controller.transcript, "")
     }
 
     @MainActor
-    func testFinalAcknowledgementUnlocksOnceAndLateCallbacksAreIgnored() {
+    func testFinalAcknowledgementUnlocksOnceAndLateCallbacksAreIgnored() async {
         let capture = FakeSpeechCapture()
-        let controller = SpeechChallengeController(capture: capture)
+        let controller = SpeechChallengeController(capture: capture, classify: { _ in .accepted })
         var matches = 0
         controller.requestAndStart(expectedPhrases: [], acceptsSimilarAcknowledgements: true) { matches += 1 }
         capture.permissions[0](true)
@@ -240,6 +385,7 @@ final class SpeechFlowTests: XCTestCase {
         receive(.transcript("I am making a bad choice", isFinal: true))
         receive(.transcript("I am making a bad choice", isFinal: true))
         receive(.failure(NSError(domain: "Cancellation", code: 301)))
+        await waitForClassification(controller)
         XCTAssertEqual(matches, 1)
         XCTAssertNil(controller.errorMessage)
         XCTAssertFalse(controller.isListening)

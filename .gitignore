@@ -27,3 +27,7 @@ Package.resolved
 .env
 .env.*
 !.env.example
+
+# Local model-training Python artifacts
+__pycache__/
+.venv/

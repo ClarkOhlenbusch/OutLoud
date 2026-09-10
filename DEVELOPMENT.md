@@ -47,11 +47,12 @@ Select a connected iPhone and choose **Product > Test** (`Command-U`) in Xcode. 
 
 The current unit tests cover:
 
-- Phrase collections, normalization, contractions, punctuation, recognition errors, flexible acknowledgments, model loading, safety gates, incomplete phrases, and false positives.
+- Phrase collections, normalization, contractions, punctuation, recognition errors, model loading, input/score validation, incomplete phrases, and semantic false positives using the bundled model.
 - Every persisted onboarding step, invalid persisted state, back navigation, and progress count.
 - Usage-reminder interval persistence, independent monitor generations, notification copy, and event-name parsing.
 - Own words versus Specific phrases routing, opposite-intent phrase regressions, reminder cadence changes, and retrying a failed unlock without losing the challenge.
 - Partial/final speech sequences, cancellation, stale callbacks, denied permissions, startup errors and finalization timeout.
+- Automatic listening after rejected phrases in both modes, repeated mismatches, and cancellation/background during classification. A mismatch shows guidance without a retry button; actual recording failures retain Restart listening.
 - Speech-service reconnection, bounded retries, fresh-phrase acceptance, background/cancellation during recovery, and audio interruption/media reset handling. See the [error 1107 investigation](docs/SPEECH_1107_INVESTIGATION.md).
 - Independent app access windows, expiry, stale monitor callbacks, practice, cancellation, relaunch and return-mapping persistence.
 - The extension's reminder handler through cadence changes, duplicate events, per-app progress, midnight reset and failed-monitor recovery.
@@ -70,17 +71,39 @@ For usage reminders, choose each cadence on a physical iPhone, turn protection o
 
 ## Flexible-acknowledgment model
 
-Flexible matching uses a Create ML text classifier built on Apple’s revision-1 BERT contextual embedding. Own words mode always applies explicit safety rules to reject questions, quoted statements, unrelated negative language, and opposite intent before model inference. Specific phrases mode uses deterministic matching with normalization, conversational filler, and limited recognition tolerance; character similarity cannot substitute arbitrary words in a multiword phrase.
+Own words uses a fine-tuned BERT-Medium model and WordPiece vocabulary, both
+bundled with the app. Every accepted transcript requires a model score; there are no
+keyword-based passes or substring vetoes. The app and trainer share input limits
+and score validation in `Shared/AcknowledgementDecision.swift`. Specific phrases
+still uses deterministic normalization and limited recognition tolerance.
 
-The original training sentences and a separate held-out evaluation set live in `ModelTraining`. Retrain and replace the bundled model with:
+Training, calibration, and final-test corpora are separate. See
+[ModelTraining/README.md](ModelTraining/README.md) for labeling rules, synthetic
+data limitations, calibration-only development, and exact-candidate promotion.
+Train and replace the bundled model with:
 
 ```sh
-xcrun swift ModelTraining/train-acknowledgement-classifier.swift
+ModelTraining/train-acknowledgement-classifier.sh
 ```
 
-The trainer selects a conservative confidence threshold, writes it into the model metadata, and refuses to replace the model unless a held-out threshold reaches at least 85% precision, 20% recall, and a 5% or lower false-positive rate. The production safety gate improves on those raw-model measurements.
+The trainer chooses the threshold using calibration data, checks the exported
+Core ML path on CPU, then evaluates the untouched final test.
+Both must reach 95% precision, 80% recall, and at most 3% false positives before
+an atomic model replacement. Model metadata binds the threshold to the decision
+policy and corpus hashes; the adjacent evaluation report records confusion counts.
 
-Apple distributes the contextual-embedding asset through the operating system. Simulator does not include that downloadable asset, so the model-inference unit test is skipped there; run the full suite on a physical iPhone after the asset is available. Deterministic phrase and safety-gate tests continue to run in Simulator.
+Classification needs no OS embedding download or Apple Intelligence. Speech
+recognition also requires local processing, with no server fallback. Inference
+and model loading are serialized off the main thread; a 15-second timeout or
+unavailable model leaves protection intact. The iOS 17 deployment target is
+unchanged. Complete the oldest-device and Airplane Mode checks in
+[the device checklist](docs/DEVICE_VALIDATION.md) before release.
+
+Semantic integration tests now run in Simulator as well as on iPhone because
+all classification resources are bundled. Speech flow tests inject inference
+to control cancellation, failure, and latency. Simulator UI fixtures use a
+classifier stub only for UI test launches; this is excluded from physical-device
+and Release builds and is not evidence of model accuracy.
 
 ## Xcode launch messages
 

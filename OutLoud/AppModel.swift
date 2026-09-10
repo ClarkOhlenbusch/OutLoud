@@ -50,7 +50,7 @@ final class AppModel: ObservableObject {
         )
         if acceptsSimilarAcknowledgements {
 #if !targetEnvironment(simulator)
-            Task { await FlexibleAcknowledgementMatcher.prepareModelAssets() }
+            Task { await FlexibleAcknowledgementMatcher.prepareModel() }
 #endif
         }
         if usageRemindersEnabled && !isDemoMode {
@@ -194,7 +194,7 @@ final class AppModel: ObservableObject {
         )
         if enabled {
 #if !targetEnvironment(simulator)
-            Task { await FlexibleAcknowledgementMatcher.prepareModelAssets() }
+            Task { await FlexibleAcknowledgementMatcher.prepareModel() }
 #endif
         }
     }

@@ -13,11 +13,34 @@ existing OutLoud configuration. No transcripts or app tokens need to be logged.
 
 1. Install the development build with all three extensions and matching App
    Group / Family Controls entitlements. Run the OutLoud unit tests on the phone
-   so the model-inference test can run with Apple's downloaded language asset.
+   to exercise the bundled classifier on actual device hardware.
    Simulator-only UI tests skip on a phone.
 2. Select two individual apps, A and B. Include an app outside the auto-return
    list. Enable Screen Time, microphone and Speech Recognition permissions.
 3. Keep Console.app open with subsystem `com.clarkohlenbusch.outloud`.
+
+## Own words compatibility and offline checks
+
+- Run the semantic matcher tests on the oldest supported iOS 17 phone available
+  (for example, iPhone XS/XR or SE second generation), and a current phone. Record
+  the exact hardware/OS and whether tests ran or skipped; a Simulator cannot
+  establish older-device performance.
+- Make sure on-device English speech recognition is available, force-quit the
+  app, enable Airplane Mode
+  with Wi-Fi disabled, and repeat Own words acknowledgments and rejections.
+  Neither speech recognition nor classification may fall back to a server.
+- Try “This sandwich is bad,” “The weather here is bad,” “I had a bad time at
+  dinner,” “The soup can wait,” and “This app has bad reviews.” None should
+  unlock. Try “I need to admit I am procrastinating” and an acknowledgment that
+  describes choosing the feed over sleep without using the word “bad.”
+- A missing or invalid bundled model must explain that Own words could not
+  load and leave protection intact. Specific phrases remains available explicitly;
+  the app must never silently switch modes or use keywords as a fallback.
+- Record cold and warm time from final transcript to decision, peak memory,
+  and UI responsiveness. Cancel and background during Checking phrase. A later
+  result must not unlock; a check taking over 15 seconds must show a retry.
+- Try a long acknowledgment followed by “but I need this for work.” Overlong
+  input must be rejected in full, never accepted from a truncated prefix.
 
 ## Setup and returning to apps
 
@@ -37,6 +60,10 @@ existing OutLoud configuration. No transcripts or app tokens need to be logged.
   choice.” None should unlock. Test questions and quoted prompts as well.
 - In Specific phrases mode, test the saved phrase, a contraction, an unrelated
   phrase, and added negation. Verify legitimate custom wording still works.
+- In both modes, say several nonmatching phrases, then a valid phrase. Each
+  mismatch should clear the transcript and resume Listening with guidance and
+  no retry button. The valid final phrase should unlock once. Cancel or
+  background while checking a rejected phrase; recording must stay stopped.
 - Test with a headset and background noise. If automatic end-of-speech does not
   trigger, tap Done speaking. The app should finish checking or show a retryable
   error, never remain indefinitely in Checking phrase.
@@ -46,15 +73,15 @@ existing OutLoud configuration. No transcripts or app tokens need to be logged.
   allowing it afterward must not start hidden recording.
 - Interrupt capture by backgrounding the app or taking a call. Reopen and
   confirm the user can complete or retry the pause. Repeat with no network after
-  the on-device assets are available. Audio must not use server fallback.
+  the on-device speech assets are available. Audio must not use server fallback.
 - Reopen OutLoud with a pending shield challenge, then cancel it. Reopening again
   must not resurrect the cancelled challenge. Practice must not unlock any app.
 
 - For speech-service failures 1107/1101, verify one reconnect, the instruction
   to repeat the full phrase, and acceptance only of a fresh final result. A
-  repeated failure must stop with Couldn’t listen and a working Try again.
+  repeated failure must stop with Couldn’t listen and a working Restart listening.
 - Use Settings > Developer > Reset Media Services during capture. Verify no
-  automatic recording follows the reset; Try again must start a fresh session.
+  automatic recording follows the reset; Restart listening must start a fresh session.
   Also cancel/background during Reconnecting and confirm recording stays off.
   See [the error 1107 investigation](SPEECH_1107_INVESTIGATION.md).
 

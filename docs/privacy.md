@@ -17,7 +17,7 @@ Apps and websites selected through Apple's Family Controls picker are represente
 
 ## Speech recognition
 
-OutLoud requests Microphone and Speech Recognition access only while a spoken pause is active. Audio and recognized text are not stored by OutLoud, sent to the developer, or used for analytics or advertising. Speech processing is provided by Apple's operating-system frameworks and is subject to Apple's software and privacy terms. OutLoud requests on-device recognition whenever the device supports it. Optional flexible acknowledgment matching uses a bundled Core ML classifier and Apple's on-device Natural Language framework. Apple may download the generic contextual-embedding asset required by that framework; spoken text remains on the device and OutLoud does not call a paid or third-party AI service.
+OutLoud requests Microphone and Speech Recognition access only while a spoken pause is active. Audio and recognized text are not stored by OutLoud, sent to the developer, or used for analytics or advertising. Speech processing is provided by Apple's operating-system frameworks and is subject to Apple's software and privacy terms. OutLoud requires on-device recognition and does not fall back to server speech processing. Own words acknowledgment matching uses a Core ML classifier and vocabulary bundled with OutLoud. Classification requires no language-asset download; spoken text remains on the device and OutLoud does not call an external AI service.
 
 ## Notifications and Shortcuts
 

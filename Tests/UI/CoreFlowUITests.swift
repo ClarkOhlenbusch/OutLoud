@@ -78,9 +78,16 @@ final class CoreFlowUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Try again"].exists)
     }
 
+    func testRejectedPhrasesAutomaticallyListenAgainAndUnlock() {
+        launch("speech-rejection")
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Try again"].exists)
+        XCTAssertFalse(app.buttons["Restart listening"].exists)
+    }
+
     func testRepeatedSpeechInterruptionShowsHelpfulRetryAndRecovers() {
         launch("speech-interruption-repeated")
-        let retry = app.buttons["Try again"]
+        let retry = app.buttons["Restart listening"]
         XCTAssertTrue(retry.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Couldn’t listen"].exists)
         XCTAssertTrue(app.staticTexts["“I am wasting my time on Instagram.”"].exists)

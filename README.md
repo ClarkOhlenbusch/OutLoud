@@ -45,30 +45,45 @@ app's window.
 
 Flexible mode is not a chatbot. It is a compact binary classifier trained to answer one question: **did this person acknowledge that opening the app is avoidable or counterproductive?**
 
-OutLoud uses three layers instead of asking a model to decide everything:
+In Own words mode, every acceptance comes from the classifier evaluating the
+completed statement. Words such as “bad,” “this,” or “time” never unlock an app
+by themselves. Questions, quotations, denials, unrelated complaints, and
+necessary-use statements are included as negative training examples. Saved
+phrases are used only in Specific phrases mode.
 
-| Layer | What it handles |
-| --- | --- |
-| Deterministic matching | In Specific phrases mode, a saved phrase with normalization and limited speech-recognition tolerance. |
-| Safety policy | Clear acknowledgments are accepted; questions, quoted speech, opposite intent, and necessary-use statements are rejected. |
-| Core ML classifier | Nuanced wording that is relevant but not obvious enough for a rule. |
-
-Own words mode always applies the safety policy before classification; saved phrases cannot bypass it. That final layer is a Create ML text classifier built with transfer learning from Apple's revision-1 BERT contextual embedding. The classifier bundled with OutLoud is only **1.3 MB**; Apple supplies the larger language embedding through iOS, and inference stays on-device.
+The classifier is a fine-tuned BERT-Medium model with its WordPiece vocabulary
+bundled inside the app (about 83 MB of model weights). Classification runs
+locally on a background queue using the CPU backend validated by the trainer.
+It needs no Apple Intelligence or OS embedding download.
+The app still supports iOS 17. An unavailable model or timed-out check leaves
+the app locked with a retry message. Speech recognition also requires on-device
+processing and never falls back to a server.
 
 ### Current model
 
-| Training corpus | Held-out corpus | Threshold | Precision | Recall | False-positive rate |
-| :---: | :---: | :---: | :---: | :---: | :---: |
-| 392 | 80 | 0.88 | 88.2% | 50.0% | 4.0% |
+| Training | Calibration | Final test | Threshold | Precision | Recall | False-positive rate |
+| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 8,540 | 595 | 125 | 0.994 | 95.8% | 92.0% | 2.7% |
 
-These are raw classifier results on the separate held-out set. The runtime safety policy is applied before inference and rejects known false-positive patterns on top of that.
+These counts describe the bundled model's original training run. Calibration
+now contains 1,065 examples; the unchanged model achieves 99.0% precision and
+86.2% recall on that expanded set. See the
+[expanded validation report](ModelTraining/acknowledgement-validation.json).
 
-The bias toward precision is intentional: asking someone to try again is less harmful than silently removing the pause. During training, the script searches confidence thresholds and refuses to replace the shipping model unless one reaches at least 85% precision, 20% recall, and a 5% or lower false-positive rate.
+Metrics cover the complete transcript decision through the exported model,
+including the same normalization, tokenizer, input limits, and score check used
+by the app. The [evaluation report](OutLoud/Models/FlexibleAcknowledgementClassifier.evaluation.json)
+records 46 true accepts, 2 false accepts, 73 true rejects, and 4 false rejects on
+the final set. Training, threshold calibration, and final testing use separate
+corpora. Examples are
+synthetic project data; these figures are not a claim of real-world accuracy.
 
-The original training sentences, held-out evaluation set, generated model, and complete training script are all versioned in this repository. Retraining is one command:
+The trainer requires at least 95% precision, 80% recall, and at most a 3%
+false-positive rate on calibration and final testing before replacing the model.
+The corpora, model, evaluation report, and training script are versioned here:
 
 ```sh
-xcrun swift ModelTraining/train-acknowledgement-classifier.swift
+ModelTraining/train-acknowledgement-classifier.sh
 ```
 
 Explore the [`ModelTraining`](ModelTraining/) directory or read the runtime matcher in [`FlexibleAcknowledgementMatcher.swift`](OutLoud/FlexibleAcknowledgementMatcher.swift).

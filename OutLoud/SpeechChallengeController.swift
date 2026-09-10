@@ -27,9 +27,13 @@ final class SpeechChallengeController: NSObject, ObservableObject {
     @Published var statusMessage: String?
     @Published var audioLevel: CGFloat = 0
     @Published var errorMessage: String?
+    @Published private(set) var errorTitle = "Couldn’t listen"
 
+    private let classify: (String) async -> AcknowledgementMatch
+    private var classificationTask: Task<Void, Never>?
     private let capture: SpeechCapture
     private let now: () -> Date
+    private let classificationTimeout: UInt64
     private let finalizationTimeout: UInt64
     private let recoveryDelay: UInt64
     private let isApplicationActive: @MainActor () -> Bool
@@ -41,18 +45,23 @@ final class SpeechChallengeController: NSObject, ObservableObject {
 
     init(
         capture: SpeechCapture? = nil,
+        classify: ((String) async -> AcknowledgementMatch)? = nil,
         now: @escaping () -> Date = Date.init,
         finalizationTimeout: UInt64 = 8_000_000_000,
+        classificationTimeout: UInt64 = 15_000_000_000,
         recoveryDelay: UInt64 = 600_000_000,
         isApplicationActive: @escaping @MainActor () -> Bool = { UIApplication.shared.applicationState == .active }
     ) {
 #if DEBUG && targetEnvironment(simulator)
         self.capture = capture ?? UITestScenario.makeSpeechCapture() ?? SystemSpeechCapture()
+        self.classify = classify ?? UITestScenario.makeClassifier() ?? { await FlexibleAcknowledgementMatcher.evaluate(transcript: $0) }
 #else
         self.capture = capture ?? SystemSpeechCapture()
+        self.classify = classify ?? { await FlexibleAcknowledgementMatcher.evaluate(transcript: $0) }
 #endif
         self.now = now
         self.finalizationTimeout = finalizationTimeout
+        self.classificationTimeout = classificationTimeout
         self.recoveryDelay = recoveryDelay
         self.isApplicationActive = isApplicationActive
         super.init()
@@ -88,6 +97,7 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         let sessionID = self.sessionID
         transcript = ""
         errorMessage = nil
+        errorTitle = "Couldn’t listen"
         recoveriesRemaining = 1
         capture.requestPermissions { [weak self] allowed in
             guard let self, self.sessionID == sessionID else { return }
@@ -119,6 +129,8 @@ final class SpeechChallengeController: NSObject, ObservableObject {
 
     func stop() {
         sessionID = UUID()
+        classificationTask?.cancel()
+        classificationTask = nil
         timeoutTask?.cancel()
         timeoutTask = nil
         recoveryTask?.cancel()
@@ -133,7 +145,7 @@ final class SpeechChallengeController: NSObject, ObservableObject {
     }
 
     func pauseForBackground() {
-        fail("Recording was paused. Return to OutLoud and tap Try again when you’re ready.")
+        fail("Recording was paused. Return to OutLoud and tap Restart listening when you’re ready.")
     }
 
     /// End capture after a pause (or an explicit tap), then wait for the
@@ -172,21 +184,68 @@ final class SpeechChallengeController: NSObject, ObservableObject {
             transcript = text
             if lastVoiceAt == nil { lastVoiceAt = now() }
             guard isFinal else { return }
-            let matched = ChallengePhraseMatcher.matches(
-                transcript: text, expectedPhrases: expectedPhrases,
-                acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements
-            )
+            // Stop audio and invalidate all recognizer callbacks before inference.
             stop()
-            if matched {
+            if acceptsSimilarAcknowledgements {
+                isFinalizing = true
+                let checkingSession = sessionID
+                timeoutTask = Task { [weak self, classificationTimeout] in
+                    do { try await Task.sleep(nanoseconds: classificationTimeout) }
+                    catch { return }
+                    guard let self, self.sessionID == checkingSession else { return }
+                    self.fail("Checking your words took too long. Please try again with a short acknowledgment.", title: "Couldn’t check your words")
+                }
+                classificationTask = Task { [weak self, classify] in
+                    let result = await classify(text)
+                    guard let self, !Task.isCancelled, self.sessionID == checkingSession else { return }
+                    self.timeoutTask?.cancel()
+                    self.timeoutTask = nil
+                    self.isFinalizing = false
+                    self.classificationTask = nil
+                    switch result {
+                    case .accepted:
+                        OutLoudLog.speech.info("Final acknowledgement matched")
+                        onMatch()
+                    case .rejected:
+                        self.listenForNextPhrase(
+                            expectedPhrases: expectedPhrases,
+                            acceptsSimilarAcknowledgements: true,
+                            message: "Still listening. Acknowledge how opening this app would distract you or take time from something that matters.",
+                            onMatch: onMatch)
+                    case .unavailable:
+                        self.errorTitle = "Couldn’t check your words"
+                        self.errorMessage = "Own words couldn’t load on this device. Please restart OutLoud and try again. You can also choose Specific phrases in Settings."
+                    }
+                }
+            } else if PhraseMatcher.matches(transcript: text, expectedPhrases: expectedPhrases) {
                 OutLoudLog.speech.info("Final spoken phrase matched")
                 onMatch()
             } else {
-                errorMessage = "That didn’t match. Try saying the phrase again."
+                listenForNextPhrase(expectedPhrases: expectedPhrases,
+                                    acceptsSimilarAcknowledgements: false,
+                                    message: "Still listening. Say the full phrase again.", onMatch: onMatch)
             }
         case .failure(let error):
             handleFailure(error, expectedPhrases: expectedPhrases,
                           acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements, onMatch: onMatch)
         }
+    }
+
+    private func listenForNextPhrase(expectedPhrases: [String], acceptsSimilarAcknowledgements: Bool,
+                                     message: String, onMatch: @escaping () -> Void) {
+        // A mismatch is another turn in the same challenge. Each turn gets a
+        // fresh transcript and session so old callbacks cannot accept or fail it.
+        stop()
+        guard isApplicationActive() else {
+            pauseForBackground()
+            return
+        }
+        transcript = ""
+        errorMessage = nil
+        statusMessage = message
+        recoveriesRemaining = 1
+        startCapture(expectedPhrases: expectedPhrases,
+                     acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements, onMatch: onMatch)
     }
 
     private func handleFailure(_ error: Error, expectedPhrases: [String],
@@ -216,7 +275,7 @@ final class SpeechChallengeController: NSObject, ObservableObject {
                                   acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements, onMatch: onMatch)
             }
         } else if serviceInterrupted {
-            fail("Speech recognition was interrupted. Tap Try again and say the full phrase. If this keeps happening, close and reopen OutLoud.")
+            fail("Speech recognition was interrupted. Tap Restart listening and say the full phrase. If this keeps happening, close and reopen OutLoud.")
         } else if let error = error as? SpeechCaptureError {
             fail(error.localizedDescription)
         } else {
@@ -224,8 +283,9 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         }
     }
 
-    private func fail(_ message: String) {
+    private func fail(_ message: String, title: String = "Couldn’t listen") {
         stop()
+        errorTitle = title
         errorMessage = message
     }
 }

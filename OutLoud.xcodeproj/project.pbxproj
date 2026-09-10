@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A12000000000000000000009 /* MODEL_LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000010 /* MODEL_LICENSE.txt */; };
+		A12000000000000000000007 /* AcknowledgementVocabulary.txt in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000008 /* AcknowledgementVocabulary.txt */; };
+		A12000000000000000000005 /* AcknowledgementInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000006 /* AcknowledgementInference.swift */; };
+		A12000000000000000000003 /* AcknowledgementTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000004 /* AcknowledgementTokenizer.swift */; };
+		A12000000000000000000001 /* AcknowledgementDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000002 /* AcknowledgementDecision.swift */; };
 		0B32671A4FABCCB652ADCD05 /* FlexibleAcknowledgementClassifier.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 9173EF5A670523FFE5F6E90D /* FlexibleAcknowledgementClassifier.mlmodel */; };
 		1137D79F78C9E6CADC3C5CD8 /* SharedSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD61CB0DA2EF3B57AEEC886 /* SharedSettings.swift */; };
 		1947D3CE715F11AB414854E8 /* ShieldActionExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A04E5C8CF7907DE45D9DAFD /* ShieldActionExtension.swift */; };
@@ -109,6 +114,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A12000000000000000000010 /* MODEL_LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = MODEL_LICENSE.txt; sourceTree = "<group>"; };
+		A12000000000000000000008 /* AcknowledgementVocabulary.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = AcknowledgementVocabulary.txt; sourceTree = "<group>"; };
+		A12000000000000000000006 /* AcknowledgementInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementInference.swift; sourceTree = "<group>"; };
+		A12000000000000000000004 /* AcknowledgementTokenizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementTokenizer.swift; sourceTree = "<group>"; };
+		A12000000000000000000002 /* AcknowledgementDecision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementDecision.swift; sourceTree = "<group>"; };
 		041E54838735EBDC1BD12B5A /* OutLoudShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OutLoudShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0FA2343A8E33857CAFF78083 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
 		31C0D266377C59D79A1B9FD8 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -149,6 +159,9 @@
 			children = (
 				BCD0E12F83B322FD88A573EA /* ScreenTimeClient.swift */,
 				E3D459F930552DCF5F1F9934 /* PhraseMatcher.swift */,
+				A12000000000000000000002 /* AcknowledgementDecision.swift */,
+				A12000000000000000000006 /* AcknowledgementInference.swift */,
+				A12000000000000000000004 /* AcknowledgementTokenizer.swift */,
 				A11000000000000000000001 /* PrivacyInfo.xcprivacy */,
 				BDD61CB0DA2EF3B57AEEC886 /* SharedSettings.swift */,
 				77D7BC06160AFC944804E0F2 /* ShieldManager.swift */,
@@ -168,6 +181,8 @@
 			isa = PBXGroup;
 			children = (
 				9173EF5A670523FFE5F6E90D /* FlexibleAcknowledgementClassifier.mlmodel */,
+				A12000000000000000000010 /* MODEL_LICENSE.txt */,
+				A12000000000000000000008 /* AcknowledgementVocabulary.txt */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -480,6 +495,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10700000000000000000001 /* Assets.xcassets in Resources */,
+				A12000000000000000000009 /* MODEL_LICENSE.txt in Resources */,
+				A12000000000000000000007 /* AcknowledgementVocabulary.txt in Resources */,
 				A11100000000000000000001 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -564,6 +581,9 @@
 				46E7B3C0835D58B0BE213022 /* OutLoudApp.swift in Sources */,
 				A10100000000000000000001 /* RearmProtectionIntent.swift in Sources */,
 				B24A4B9C3C3FC42DB6C02803 /* PhraseMatcher.swift in Sources */,
+				A12000000000000000000001 /* AcknowledgementDecision.swift in Sources */,
+				A12000000000000000000005 /* AcknowledgementInference.swift in Sources */,
+				A12000000000000000000003 /* AcknowledgementTokenizer.swift in Sources */,
 				B8C323C8AE6E4C9E2631DEFE /* SharedSettings.swift in Sources */,
 				D5C5322835AA3F9535004B61 /* ShieldManager.swift in Sources */,
 				67E920893680E6D5775C76B6 /* SpeechChallengeController.swift in Sources */,

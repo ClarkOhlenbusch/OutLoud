@@ -1,8 +1,85 @@
+import CoreML
 import XCTest
 @testable import OutLoud
 
 final class PhraseMatcherTests: XCTestCase {
-    func testOwnWordsCannotBypassPolicyThroughSavedPhrases() {
+    private func requireBundledModel() throws {
+        XCTAssertTrue(FlexibleAcknowledgementMatcher.isModelAvailable)
+    }
+
+    func testClassifierRejectsMismatchedVocabulary() throws {
+        let configuration = MLModelConfiguration()
+        configuration.computeUnits = .cpuOnly
+        let model = try FlexibleAcknowledgementClassifier(configuration: configuration).model
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "AcknowledgementVocabulary", withExtension: "txt"))
+        let original = try Data(contentsOf: url)
+        XCTAssertNoThrow(try AcknowledgementInference(model: model, vocabulary: original))
+        var words = try XCTUnwrap(String(data: original, encoding: .utf8)).components(separatedBy: "\n")
+        words.swapAt(200, 201)
+        let modified = words.joined(separator: "\n")
+        XCTAssertNotNil(AcknowledgementTokenizer(vocabulary: modified))
+        XCTAssertThrowsError(try AcknowledgementInference(model: model, vocabulary: Data(modified.utf8)))
+    }
+
+    func testContractionNormalizationPreservesNegation() {
+        XCTAssertEqual(AcknowledgementDecision.modelInput("I’m not wasting time"), "I am not wasting time")
+        XCTAssertEqual(AcknowledgementDecision.modelInput("This isn't a bad choice"), "This is not a bad choice")
+        XCTAssertEqual(AcknowledgementDecision.modelInput("I don't need this app"), "I do not need this app")
+        XCTAssertEqual(AcknowledgementDecision.modelInput("This can't wait"), "This cannot wait")
+    }
+
+    func testTokenizerRejectsOverflowAndReservedMarkers() throws {
+        let url = try XCTUnwrap(Bundle.main.url(forResource: "AcknowledgementVocabulary", withExtension: "txt"))
+        let tokenizer = try XCTUnwrap(AcknowledgementTokenizer(vocabulary: String(contentsOf: url, encoding: .utf8)))
+        XCTAssertNil(tokenizer.encode(String(repeating: "hello ", count: 127)))
+        XCTAssertNil(tokenizer.encode("[CLS] bad [SEP]"))
+        XCTAssertNil(AcknowledgementTokenizer(vocabulary: "bad\nthis\nhere"))
+        let encoded = try XCTUnwrap(tokenizer.encode("I am making a bad choice"))
+        XCTAssertEqual(encoded.ids.count, 128)
+        XCTAssertEqual(encoded.mask.count, 128)
+        XCTAssertEqual(encoded.ids.prefix(8), [101, 1045, 2572, 2437, 1037, 2919, 3601, 102])
+        XCTAssertEqual(encoded.mask.prefix(9), [1, 1, 1, 1, 1, 1, 1, 1, 0])
+    }
+
+    func testNoKeywordOrPhraseCanAcceptWithoutAModelScore() {
+        for text in ["This sandwich is bad", "The weather here is bad", "I had a bad time at dinner", "The soup can wait", "I am making a bad choice"] {
+            XCTAssertNotNil(AcknowledgementDecision.modelInput(text))
+            XCTAssertFalse(AcknowledgementDecision.accepts(score: nil, threshold: 0.8), text)
+            XCTAssertFalse(AcknowledgementDecision.accepts(score: 0.4, threshold: 0.8), text)
+        }
+    }
+
+    func testModelSeesFullStatementIncludingNegationsAndConcessions() {
+        for text in ["Checking this would only help me put things off", "I need to admit I am procrastinating", "I am making a bad choice but I need this for work"] {
+            XCTAssertEqual(AcknowledgementDecision.modelInput(text), text)
+        }
+    }
+
+    func testLongInputIsRejectedInsteadOfTruncatingItsEnding() {
+        XCTAssertNil(AcknowledgementDecision.modelInput(String(repeating: "I am wasting time ", count: 30) + "but this is necessary"))
+        XCTAssertNil(AcknowledgementDecision.modelInput("bad"))
+        XCTAssertNil(AcknowledgementDecision.modelInput("   "))
+    }
+
+    func testInvalidOrLowScoresNeverUnlock() {
+        for score in [Double.nan, .infinity, -.infinity, -0.1, 1.1, 0.79] {
+            XCTAssertFalse(AcknowledgementDecision.accepts(score: score, threshold: 0.8))
+        }
+        for threshold in [Double.nan, .infinity, 0.0, 1.1] {
+            XCTAssertFalse(AcknowledgementDecision.accepts(score: 1, threshold: threshold))
+        }
+        XCTAssertTrue(AcknowledgementDecision.accepts(score: 0.8, threshold: 0.8))
+    }
+
+    func testUnrelatedNegativeSpeechDoesNotUnlock() throws {
+        try requireBundledModel()
+        for text in ["This sandwich is bad", "The weather here is bad", "I had a bad time at dinner", "The soup can wait", "This app has bad reviews"] {
+            XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(transcript: text), text)
+        }
+    }
+
+    func testOwnWordsCannotBypassModelThroughSavedPhrases() throws {
+        try requireBundledModel()
         let rejected = [
             "I am making a good choice",
             "I am not making a bad choice",
@@ -19,7 +96,8 @@ final class PhraseMatcherTests: XCTestCase {
         }
     }
 
-    func testOwnWordsStillAcceptsAcknowledgements() {
+    func testOwnWordsStillAcceptsAcknowledgements() throws {
+        try requireBundledModel()
         for transcript in [
             "I am making a bad choice",
             "I'm making a bad choice",
@@ -105,37 +183,43 @@ final class PhraseMatcherTests: XCTestCase {
         )
     }
 
-    func testFlexibleAcknowledgementMatchesParaphrase() {
+    func testFlexibleAcknowledgementMatchesParaphrase() throws {
+        try requireBundledModel()
         XCTAssertTrue(FlexibleAcknowledgementMatcher.matches(
             transcript: "I acknowledge this is a poor decision"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsOppositeMeaning() {
+    func testFlexibleAcknowledgementRejectsOppositeMeaning() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "I need to use this app"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsPositiveStatement() {
+    func testFlexibleAcknowledgementRejectsPositiveStatement() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "I am having a good time here"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsNegatedBadChoice() {
+    func testFlexibleAcknowledgementRejectsNegatedBadChoice() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "This isn't a bad choice"
         ))
     }
 
-    func testFlexibleAcknowledgementUnderstandsLessLiteralAdmission() {
+    func testFlexibleAcknowledgementUnderstandsLessLiteralAdmission() throws {
+        try requireBundledModel()
         XCTAssertTrue(FlexibleAcknowledgementMatcher.matches(
             transcript: "I realize this may not be wise"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsUnrelatedSpeech() {
+    func testFlexibleAcknowledgementRejectsUnrelatedSpeech() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "The weather is nice today"
         ))
@@ -146,39 +230,42 @@ final class PhraseMatcherTests: XCTestCase {
     }
 
     func testFlexibleAcknowledgementUsesModelForNovelAdmission() throws {
-        guard FlexibleAcknowledgementMatcher.areModelAssetsAvailable else {
-            throw XCTSkip("Simulator does not include the downloadable Natural Language contextual-embedding asset.")
-        }
+        try requireBundledModel()
         XCTAssertTrue(FlexibleAcknowledgementMatcher.matches(
             transcript: "I know scrolling would take me away from my plans"
         ))
     }
 
-    func testFlexibleAcknowledgementSafetyGateOverridesModelFalsePositive() {
+    func testFlexibleAcknowledgementRejectsExplicitDenial() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "I am definitely not here to procrastinate"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsUnrelatedNegativeHabit() {
+    func testFlexibleAcknowledgementRejectsUnrelatedNegativeHabit() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "My old habit was biting my nails"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsQuestion() {
+    func testFlexibleAcknowledgementRejectsQuestion() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "Is this app a waste of time?"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsReportedPrompt() {
+    func testFlexibleAcknowledgementRejectsReportedPrompt() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "The prompt says I am making a bad choice"
         ))
     }
 
-    func testFlexibleAcknowledgementRejectsNecessaryConcession() {
+    func testFlexibleAcknowledgementRejectsNecessaryConcession() throws {
+        try requireBundledModel()
         XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(
             transcript: "This might waste time but it is required for work"
         ))

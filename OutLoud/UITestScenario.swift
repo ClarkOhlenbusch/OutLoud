@@ -10,6 +10,13 @@ import ManagedSettings
 enum UITestScenario {
     static var scenario: String? { ProcessInfo.processInfo.environment["OUTLOUD_UI_TEST_SCENARIO"] }
 
+    // UI navigation fixtures do not exercise language inference. This stub is
+    // excluded from Release/physical devices and only enabled by UI test env.
+    static func makeClassifier() -> ((String) async -> AcknowledgementMatch)? {
+        guard scenario != nil else { return nil }
+        return { $0 == "I am making a bad choice" ? .accepted : .rejected }
+    }
+
     static func makeModel() -> AppModel? {
         guard let scenario else { return nil }
         let suite = "outloud.ui-tests.\(ProcessInfo.processInfo.environment["OUTLOUD_UI_TEST_ID"] ?? UUID().uuidString)"
@@ -73,7 +80,8 @@ private final class ScriptedSpeechCapture: SpeechCapture {
         attempts += 1
         let interrupt = (UITestScenario.scenario == "speech-interruption" && attempts == 1)
             || (UITestScenario.scenario == "speech-interruption-repeated" && attempts <= 2)
-        let phrase = phrases.first ?? "I am making a bad choice"
+        let phrase = UITestScenario.scenario == "speech-rejection" && attempts <= 2
+            ? "I need this for work" : phrases.first ?? "I am making a bad choice"
         Task {
             try? await Task.sleep(nanoseconds: 200_000_000)
             if interrupt {

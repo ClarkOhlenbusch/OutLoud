@@ -1,0 +1,355 @@
+{
+  "calibrationSHA256" : "f8dfe6a78c113862518a66e104abd85bfac7f3500343497c5665dff9411281c3",
+  "errors" : [
+    {
+      "positive" : true,
+      "score" : 0.9939444661140442,
+      "text" : "Going in here would undermine the boundary I set"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9910299777984619,
+      "text" : "I know I could wait and nothing bad would happen"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9573290348052979,
+      "text" : "There are more meaningful things I could do instead"
+    },
+    {
+      "positive" : true,
+      "score" : 0.06896242499351501,
+      "text" : "Using this now is unlikely to improve my day"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9934340715408325,
+      "text" : "This choice is inconsistent with what I said I wanted"
+    },
+    {
+      "positive" : true,
+      "score" : 0.16500835120677948,
+      "text" : "I am aware that this is an avoidable distraction"
+    },
+    {
+      "positive" : true,
+      "score" : 0.5417014956474304,
+      "text" : "I know this is a decision made on impulse"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9914613962173462,
+      "text" : "I accept that my attention belongs somewhere else"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9937712550163269,
+      "text" : "This is not worth abandoning my focus for"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9258397221565247,
+      "text" : "I am opening this because I cannot sit with boredom"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9934951663017273,
+      "text" : "I am choosing more posts over the sleep I need"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9936914443969727,
+      "text" : "I am breaking my promise to stay off this feed"
+    },
+    {
+      "positive" : true,
+      "score" : 0.052893925458192825,
+      "text" : "I am here to fill time that belongs to another task"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9921745657920837,
+      "text" : "I am using this feed as an escape from getting started"
+    },
+    {
+      "positive" : true,
+      "score" : 0.03435927629470825,
+      "text" : "I am going to spend time here that I meant to spend outside"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9937648773193359,
+      "text" : "I am about to make a pointless check of this app"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9938779473304749,
+      "text" : "This app can stay closed while I do what matters"
+    },
+    {
+      "positive" : true,
+      "score" : 0.034308504313230515,
+      "text" : "This app will help me procrastinate on the thing that matters"
+    },
+    {
+      "positive" : true,
+      "score" : 0.991434633731842,
+      "text" : "I have to admit that checking this is a distraction I can avoid"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9922001957893372,
+      "text" : "I am not pretending that opening this helps my goals"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9754923582077026,
+      "text" : "I am checking for new posts when I should be getting some sleep"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9810976982116699,
+      "text" : "I am picking up my phone to avoid a boring task"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9938914775848389,
+      "text" : "I am choosing to browse instead of following my schedule"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9928709864616394,
+      "text" : "I am choosing to delay my work by watching another clip"
+    },
+    {
+      "positive" : true,
+      "score" : 0.04123967885971069,
+      "text" : "I am choosing to spend time here that I intended for studying"
+    },
+    {
+      "positive" : true,
+      "score" : 0.5886598825454712,
+      "text" : "Opening this app now is bad for my concentration"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9793528914451599,
+      "text" : "I am choosing to avoid my work by checking this app"
+    },
+    {
+      "positive" : true,
+      "score" : 0.5829335451126099,
+      "text" : "I am giving this app time that I meant to use for exercise"
+    },
+    {
+      "positive" : true,
+      "score" : 0.06904291361570358,
+      "text" : "I am choosing my screen over the rest I need"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9939969778060913,
+      "text" : "I am getting distracted by the feed when I meant to focus"
+    },
+    {
+      "positive" : true,
+      "score" : 0.12190890312194824,
+      "text" : "I admit that my focus should be on something more important than this app"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9918293356895447,
+      "text" : "I am choosing to give in to a distraction I could avoid"
+    },
+    {
+      "positive" : true,
+      "score" : 0.23265424370765686,
+      "text" : "I am using this app to distract myself from a difficult chore"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9939634203910828,
+      "text" : "I enjoy these posts but I acknowledge that scrolling now is wasting time"
+    },
+    {
+      "positive" : true,
+      "score" : 0.04021110385656357,
+      "text" : "I am totally doomscrolling right now when I have an exam tomorrow morning"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9908490180969238,
+      "text" : "I am choosing to doomscroll rather than go to bed on time"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9887616038322449,
+      "text" : "I am stuck in a doomscroll trance when I should be studying"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9875621795654297,
+      "text" : "My productivity is completely cooked because I cannot put this phone down"
+    },
+    {
+      "positive" : true,
+      "score" : 0.03446049988269806,
+      "text" : "My sleep schedule is cooked because I keep opening this app late at night"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9840294718742371,
+      "text" : "Opening this application is just a pathetic cope to avoid my responsibilities"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9919041991233826,
+      "text" : "I am hunting for cheap dopamine hits while my urgent tasks sit unfinished"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9935198426246643,
+      "text" : "I am ignoring the obvious need to touch grass just to view more mindless posts"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9917490482330322,
+      "text" : "I am stuck in zombie mode tapping through stories for no good reason at all"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9938973784446716,
+      "text" : "I am browsing on complete autopilot without any conscious or productive intention"
+    },
+    {
+      "positive" : true,
+      "score" : 0.993608832359314,
+      "text" : "I know very well that this screen time is completely unproductive and avoidable"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9927927255630493,
+      "text" : "I am sacrificing the progress on my project just to look at more digital content"
+    },
+    {
+      "positive" : true,
+      "score" : 0.992592990398407,
+      "text" : "I am breaking the personal rule I established about limiting my daily device usage"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9936662316322327,
+      "text" : "I am turning away from my goals in order to scroll through meaningless notifications"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9627707600593567,
+      "text" : "I am letting this application steal the quiet hours I intended to use for reflection"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9931014776229858,
+      "text" : "I am choosing to dwell in digital distraction instead of engaging with the real world"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9934660792350769,
+      "text" : "I am sacrificing quality sleep tonight just to see a few more pointless updates"
+    },
+    {
+      "positive" : true,
+      "score" : 0.990643322467804,
+      "text" : "I am choosing to be distracted rather than tackle the hard chapter in my textbook"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9888139367103577,
+      "text" : "I acknowledge that this notification check is an excuse to delay my writing"
+    },
+    {
+      "positive" : true,
+      "score" : 0.03731916472315788,
+      "text" : "I know that I should close this app and focus on my upcoming presentation"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9937908053398132,
+      "text" : "I admit that I am indulging a bad habit rather than practicing self discipline"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9921086430549622,
+      "text" : "I am turning to this application because I lack the patience to finish my reading"
+    },
+    {
+      "positive" : true,
+      "score" : 0.047625403851270676,
+      "text" : "I am wasting the morning hours that I explicitly reserved for deep work"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9092408418655396,
+      "text" : "I am letting this application hijack my evening when I wanted to read a book"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9927523136138916,
+      "text" : "I am letting this handheld screen swallow my attention when I need to study"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9932505488395691,
+      "text" : "I am trading genuine relaxation for the jittery exhaustion of endless scrolling"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9933092594146729,
+      "text" : "I acknowledge that this application has become a primary source of wasted time"
+    },
+    {
+      "positive" : true,
+      "score" : 0.06747309863567352,
+      "text" : "I am choosing to ignore my impending deadlines so that I can browse this app"
+    },
+    {
+      "positive" : true,
+      "score" : 0.985355019569397,
+      "text" : "I am giving in to the temptation of social feeds when I need to focus on work"
+    },
+    {
+      "positive" : true,
+      "score" : 0.9939451813697815,
+      "text" : "I am letting impulsive phone checks interrupt my dedicated study hours"
+    },
+    {
+      "positive" : false,
+      "score" : 0.994818389415741,
+      "text" : "I am opening this app to turn off distracting alerts"
+    },
+    {
+      "positive" : false,
+      "score" : 0.994949460029602,
+      "text" : "I regret scrolling through this app earlier today"
+    },
+    {
+      "positive" : false,
+      "score" : 0.9950329065322876,
+      "text" : "I know I wasted time here previously"
+    },
+    {
+      "positive" : false,
+      "score" : 0.9955220222473145,
+      "text" : "I know that I am speaking into my phone"
+    }
+  ],
+  "evaluation" : {
+    "falseNegatives" : 64,
+    "falsePositives" : 4,
+    "threshold" : 0.994,
+    "trueNegatives" : 596,
+    "truePositives" : 401
+  },
+  "modelCalibrationSHA256" : "41086df766dfed6cbcc0d7449359785bdea9d8b65d87d150976393313dd1cf08",
+  "modelSHA256" : "7da2a9a699e5b7eff2e961151571b27537287849c77233f58dedc5749841c4a2",
+  "passes" : true
+}
