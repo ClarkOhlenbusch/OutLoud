@@ -103,13 +103,13 @@ final class VoiceAndNotificationAuditTests: ScreenTimeFlowTestCase {
         XCTAssertTrue(controller2.errorMessage!.localizedCaseInsensitiveContains("keyboard"))
     }
 
-    /// 1.C: Audio Session Configuration Includes Bluetooth Support (AirPods / Headsets)
+    /// 1.C: Audio Session Configuration Uses Valid Record Options Without ParamErr
     @MainActor
     func test1C_audioSessionConfigurationLacksBluetoothSupportCausingMicrophoneUnavailable() {
-        // Verify audio session category options include Bluetooth support
+        // Verify audio session category options are strictly valid for .record category
         let options = SystemSpeechCapture.audioSessionCategoryOptions
-        XCTAssertTrue(options.contains(.allowBluetooth), "options must include .allowBluetooth")
-        XCTAssertTrue(options.contains(.allowBluetoothA2DP), "options must include .allowBluetoothA2DP")
+        XCTAssertTrue(options.contains(.duckOthers))
+        XCTAssertFalse(options.contains(.allowBluetoothA2DP), "A2DP is invalid for .record and causes paramErr (-50)")
 
         // When microphone is unavailable:
         let capture = FakeSpeechCapture()
