@@ -20,7 +20,7 @@ enum AcknowledgementDecision {
         let words = text.split(whereSeparator: { $0.isWhitespace })
         // Bound latency and avoid classifying a truncated prefix that omits a
         // later negation/concession. Reject long speech instead of clipping it.
-        guard (3...80).contains(words.count), text.utf16.count <= 400,
+        guard (2...80).contains(words.count), text.utf16.count <= 400,
               text.unicodeScalars.contains(where: CharacterSet.letters.contains) else { return nil }
         return text
     }

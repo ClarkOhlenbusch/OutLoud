@@ -102,7 +102,7 @@ struct ChallengeView: View {
                             .tint(accent)
                         }
 
-                        if speech.isListening && !speech.transcript.isEmpty && !completed {
+                        if speech.isListening && !completed {
                             Button("Done speaking") { speech.finishSpeaking() }
                                 .buttonStyle(.bordered)
                                 .tint(accent)

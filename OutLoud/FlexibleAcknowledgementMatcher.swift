@@ -34,7 +34,11 @@ enum ExplicitAcknowledgementMatcher {
         "i acknowledge this is a bad choice",
         "this app is distracting me",
         "i should be doing something else",
-        "i realize this may not be wise"
+        "i realize this may not be wise",
+        "bad choice",
+        "wasting time",
+        "poor choice",
+        "distracting choice"
     ]
 
     static func matches(_ transcript: String) -> Bool {

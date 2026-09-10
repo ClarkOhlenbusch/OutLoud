@@ -53,6 +53,7 @@ class ScreenTimeFlowTestCase: XCTestCase {
         SharedSettings.testStorage = nil
         ScreenTimeClient.current = .live
         NotificationPermissionClient.request = NotificationPermissionClient.live
+        NotificationPermissionClient.requiresFallback = NotificationPermissionClient.liveRequiresFallback
         try FileManager.default.removeItem(at: directory)
         system = nil
         try super.tearDownWithError()

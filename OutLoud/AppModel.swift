@@ -116,8 +116,10 @@ final class AppModel: ObservableObject {
         OutLoudLog.onboarding.info("Requesting Screen Time authorization")
         for attempt in 0...1 {
             do {
-                try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-                authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                if !isDemoMode {
+                    try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
+                    authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                }
 
                 guard isAuthorized else {
                     OutLoudLog.onboarding.error(
@@ -128,8 +130,13 @@ final class AppModel: ObservableObject {
                 }
 
                 let notificationsAllowed = await requestFallbackNotificationAuthorization()
+                guard notificationsAllowed else {
+                    OutLoudLog.onboarding.error("Notification authorization was denied during setup")
+                    errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
+                    return
+                }
                 OutLoudLog.onboarding.info(
-                    "Screen Time authorization finished; approved: true, notifications allowed: \(notificationsAllowed, privacy: .public)"
+                    "Screen Time authorization finished; approved: true, notifications allowed: true"
                 )
                 return
             } catch let familyControlsError as FamilyControlsError {
@@ -432,12 +439,9 @@ final class AppModel: ObservableObject {
     }
 
     private func requestFallbackNotificationAuthorization() async -> Bool {
-#if compiler(>=6.3)
-        if #available(iOS 26.5, *) {
-            // The shield can open OutLoud directly on current iOS releases.
+        guard NotificationPermissionClient.requiresFallback() else {
             return true
         }
-#endif
         return await NotificationPermissionClient.request()
     }
 }
@@ -445,9 +449,19 @@ final class AppModel: ObservableObject {
 enum NotificationPermissionClient {
     static let live: () async -> Bool = {
         (try? await UNUserNotificationCenter.current()
-            .requestAuthorization(options: [.alert, .sound])) ?? false
+            .requestAuthorization(options: [.alert, .sound, .timeSensitive])) ?? false
     }
     static var request = live
+
+    static let liveRequiresFallback: () -> Bool = {
+#if compiler(>=6.3)
+        if #available(iOS 26.5, *) {
+            return false
+        }
+#endif
+        return true
+    }
+    static var requiresFallback = liveRequiresFallback
 }
 
 extension AuthorizationStatus {

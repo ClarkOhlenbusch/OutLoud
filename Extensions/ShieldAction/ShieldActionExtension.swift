@@ -83,6 +83,8 @@ final class ShieldActionExtension: ShieldActionDelegate {
             content.body = "Tap to say one of your phrases and continue."
         }
         content.sound = .default
+        content.interruptionLevel = .timeSensitive
+        content.relevanceScore = 1
         content.categoryIdentifier = "OUTLOUD_CHALLENGE"
 
         let request = UNNotificationRequest(

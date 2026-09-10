@@ -44,6 +44,9 @@ final class SpeechChallengeController: NSObject, ObservableObject {
     private var rejectionCount = 0
     private var sessionID = UUID()
     private var lastVoiceAt: Date?
+    private var currentExpectedPhrases: [String] = []
+    private var currentAcceptsSimilar = false
+    private var currentOnMatch: (() -> Void)?
 
     init(
         capture: SpeechCapture? = nil,
@@ -97,6 +100,9 @@ final class SpeechChallengeController: NSObject, ObservableObject {
     ) {
         stop()
         let sessionID = self.sessionID
+        currentExpectedPhrases = expectedPhrases
+        currentAcceptsSimilar = acceptsSimilarAcknowledgements
+        currentOnMatch = onMatch
         transcript = ""
         lastRejectedTranscript = nil
         errorMessage = nil
@@ -160,11 +166,24 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         isFinalizing = true
         audioLevel = 0
         let sessionID = self.sessionID
+        let expectedPhrases = self.currentExpectedPhrases
+        let acceptsSimilar = self.currentAcceptsSimilar
+        let onMatch = self.currentOnMatch
         timeoutTask = Task { [weak self, finalizationTimeout] in
             do { try await Task.sleep(nanoseconds: finalizationTimeout) }
             catch { return }
             guard let self, self.sessionID == sessionID, self.isFinalizing else { return }
-            self.fail("Speech recognition took too long. Please try again.")
+            if !self.transcript.isEmpty, let onMatch {
+                OutLoudLog.speech.info("Finalization timed out with partial transcript; evaluating available speech")
+                self.processFinalTranscript(
+                    self.transcript,
+                    expectedPhrases: expectedPhrases,
+                    acceptsSimilarAcknowledgements: acceptsSimilar,
+                    onMatch: onMatch
+                )
+            } else {
+                self.fail("Speech recognition took too long. Please try again.")
+            }
         }
         capture.finish()
     }
@@ -180,7 +199,7 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         case .level(let level):
             guard isListening else { return }
             audioLevel = (audioLevel * 0.62) + (level * 0.38)
-            if level > 0.18 { lastVoiceAt = now() }
+            if level > 0.08 { lastVoiceAt = now() }
             if !transcript.isEmpty, let lastVoiceAt, now().timeIntervalSince(lastVoiceAt) >= 1.2 {
                 finishSpeaking()
             }
@@ -188,52 +207,66 @@ final class SpeechChallengeController: NSObject, ObservableObject {
             transcript = text
             if lastVoiceAt == nil { lastVoiceAt = now() }
             guard isFinal else { return }
-            // Stop audio and invalidate all recognizer callbacks before inference.
-            stop()
-            if acceptsSimilarAcknowledgements {
-                isFinalizing = true
-                let checkingSession = sessionID
-                timeoutTask = Task { [weak self, classificationTimeout] in
-                    do { try await Task.sleep(nanoseconds: classificationTimeout) }
-                    catch { return }
-                    guard let self, self.sessionID == checkingSession else { return }
-                    self.fail("Checking your words took too long. Please try again with a short acknowledgment.", title: "Couldn’t check your words")
-                }
-                classificationTask = Task { [weak self, classify] in
-                    let result = await classify(text)
-                    guard let self, !Task.isCancelled, self.sessionID == checkingSession else { return }
-                    self.timeoutTask?.cancel()
-                    self.timeoutTask = nil
-                    self.isFinalizing = false
-                    self.classificationTask = nil
-                    switch result {
-                    case .accepted:
-                        self.lastRejectedTranscript = nil
-                        OutLoudLog.speech.info("Final acknowledgement matched")
-                        onMatch()
-                    case .rejected:
-                        self.listenForNextPhrase(
-                            expectedPhrases: expectedPhrases,
-                            acceptsSimilarAcknowledgements: true,
-                            message: "I couldn’t match that acknowledgment. Try again, or say a specific phrase instead.",
-                            onMatch: onMatch)
-                    case .unavailable:
-                        self.errorTitle = "Couldn’t check your words"
-                        self.errorMessage = "Own words couldn’t load on this device. Please restart OutLoud and try again. You can also choose Specific phrases in Settings."
-                    }
-                }
-            } else if PhraseMatcher.matches(transcript: text, expectedPhrases: expectedPhrases) {
-                lastRejectedTranscript = nil
-                OutLoudLog.speech.info("Final spoken phrase matched")
-                onMatch()
-            } else {
-                listenForNextPhrase(expectedPhrases: expectedPhrases,
-                                    acceptsSimilarAcknowledgements: false,
-                                    message: "Still listening. Say the full phrase again.", onMatch: onMatch)
-            }
+            processFinalTranscript(
+                text,
+                expectedPhrases: expectedPhrases,
+                acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements,
+                onMatch: onMatch
+            )
         case .failure(let error):
             handleFailure(error, expectedPhrases: expectedPhrases,
                           acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements, onMatch: onMatch)
+        }
+    }
+
+    private func processFinalTranscript(
+        _ text: String,
+        expectedPhrases: [String],
+        acceptsSimilarAcknowledgements: Bool,
+        onMatch: @escaping () -> Void
+    ) {
+        // Stop audio and invalidate all recognizer callbacks before inference.
+        stop()
+        if acceptsSimilarAcknowledgements {
+            isFinalizing = true
+            let checkingSession = sessionID
+            timeoutTask = Task { [weak self, classificationTimeout] in
+                do { try await Task.sleep(nanoseconds: classificationTimeout) }
+                catch { return }
+                guard let self, self.sessionID == checkingSession else { return }
+                self.fail("Checking your words took too long. Please try again with a short acknowledgment.", title: "Couldn’t check your words")
+            }
+            classificationTask = Task { [weak self, classify] in
+                let result = await classify(text)
+                guard let self, !Task.isCancelled, self.sessionID == checkingSession else { return }
+                self.timeoutTask?.cancel()
+                self.timeoutTask = nil
+                self.isFinalizing = false
+                self.classificationTask = nil
+                switch result {
+                case .accepted:
+                    self.lastRejectedTranscript = nil
+                    OutLoudLog.speech.info("Final acknowledgement matched")
+                    onMatch()
+                case .rejected:
+                    self.listenForNextPhrase(
+                        expectedPhrases: expectedPhrases,
+                        acceptsSimilarAcknowledgements: true,
+                        message: "I couldn’t match that acknowledgment. Try again, or say a specific phrase instead.",
+                        onMatch: onMatch)
+                case .unavailable:
+                    self.errorTitle = "Couldn’t check your words"
+                    self.errorMessage = "Own words couldn’t load on this device. Please restart OutLoud and try again. You can also choose Specific phrases in Settings."
+                }
+            }
+        } else if PhraseMatcher.matches(transcript: text, expectedPhrases: expectedPhrases) {
+            lastRejectedTranscript = nil
+            OutLoudLog.speech.info("Final spoken phrase matched")
+            onMatch()
+        } else {
+            listenForNextPhrase(expectedPhrases: expectedPhrases,
+                                acceptsSimilarAcknowledgements: false,
+                                message: "Still listening. Say the full phrase again.", onMatch: onMatch)
         }
     }
 
@@ -270,6 +303,10 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         let failure = error as NSError
         let phase = isFinalizing ? "finalizing" : "listening/startup"
         OutLoudLog.speech.error("Speech attempt \(self.sessionID.uuidString, privacy: .public) failed during \(phase, privacy: .public): \(failure.domain, privacy: .public) / \(failure.code, privacy: .public)")
+        if failure.domain == "kAFAssistantErrorDomain" && failure.code == 201 {
+            fail("Dictation is turned off. Turn on Enable Dictation in Settings > General > Keyboard, then try again.", title: "Dictation is turned off")
+            return
+        }
         let serviceInterrupted = failure.domain == "kAFAssistantErrorDomain" && [1101, 1107].contains(failure.code)
         if serviceInterrupted, recoveriesRemaining > 0, isApplicationActive() {
             recoveriesRemaining -= 1
@@ -315,6 +352,49 @@ final class SystemSpeechCapture: SpeechCapture {
     private var task: SFSpeechRecognitionTask?
     private var hasAudioTap = false
 
+    static let audioSessionCategoryOptions: AVAudioSession.CategoryOptions = [.duckOthers, .allowBluetooth, .allowBluetoothA2DP]
+
+    static func selectBestOnDeviceRecognizer(
+        currentLocale: Locale = .current,
+        preferredLanguages: [String] = Locale.preferredLanguages
+    ) -> SFSpeechRecognizer? {
+        // 1. Current locale
+        if let recognizer = SFSpeechRecognizer(locale: currentLocale),
+           recognizer.isAvailable, recognizer.supportsOnDeviceRecognition {
+            return recognizer
+        }
+        // 2. Preferred languages
+        for lang in preferredLanguages {
+            let locale = Locale(identifier: lang)
+            if let recognizer = SFSpeechRecognizer(locale: locale),
+               recognizer.isAvailable, recognizer.supportsOnDeviceRecognition {
+                return recognizer
+            }
+        }
+        // 3. Supported English locales
+        let fallbackLocales = ["en-US", "en-GB", "en-CA", "en-AU", "en-IN", "en-NZ", "en-IE"]
+        for id in fallbackLocales {
+            let locale = Locale(identifier: id)
+            if let recognizer = SFSpeechRecognizer(locale: locale),
+               recognizer.isAvailable, recognizer.supportsOnDeviceRecognition {
+                return recognizer
+            }
+        }
+        // 4. Any supported locale
+        for locale in SFSpeechRecognizer.supportedLocales() {
+            if let recognizer = SFSpeechRecognizer(locale: locale),
+               recognizer.isAvailable, recognizer.supportsOnDeviceRecognition {
+                return recognizer
+            }
+        }
+        // 5. Default
+        if let recognizer = SFSpeechRecognizer(),
+           recognizer.isAvailable, recognizer.supportsOnDeviceRecognition {
+            return recognizer
+        }
+        return nil
+    }
+
     func requestPermissions(_ completion: @escaping (Bool) -> Void) {
         SFSpeechRecognizer.requestAuthorization { status in
             AVAudioApplication.requestRecordPermission { allowed in
@@ -328,13 +408,12 @@ final class SystemSpeechCapture: SpeechCapture {
         // Never reuse an engine or recognizer from an interrupted attempt.
         let audioEngine = AVAudioEngine()
         self.audioEngine = audioEngine
-        let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-        self.recognizer = recognizer
-        guard let recognizer, recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else {
+        guard let recognizer = Self.selectBestOnDeviceRecognizer() else {
             throw SpeechCaptureError.unavailable
         }
+        self.recognizer = recognizer
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+        try session.setCategory(.record, mode: .measurement, options: Self.audioSessionCategoryOptions)
         try session.setActive(true, options: .notifyOthersOnDeactivation)
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -408,7 +487,7 @@ enum SpeechCaptureError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .microphoneUnavailable: "No microphone input is available."
-        case .unavailable: "On-device speech recognition is unavailable right now."
+        case .unavailable: "On-device speech recognition is unavailable. Make sure Dictation is turned on in Settings > General > Keyboard and try again."
         case .audioInterrupted: "Recording was interrupted. Tap Try again when your microphone is available and say the full phrase."
         case .mediaServicesReset: "Your iPhone’s audio service restarted. Tap Try again and say the full phrase."
         }

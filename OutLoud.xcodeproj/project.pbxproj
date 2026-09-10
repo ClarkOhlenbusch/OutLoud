@@ -34,6 +34,7 @@
 		A10100000000000000000001 /* RearmProtectionIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10200000000000000000001 /* RearmProtectionIntent.swift */; };
 		A10500000000000000000001 /* OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10300000000000000000001 /* OnboardingStep.swift */; };
 		A10600000000000000000001 /* OnboardingStepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10400000000000000000001 /* OnboardingStepTests.swift */; };
+		A12400000000000000000001 /* VoiceAndNotificationAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12400000000000000000002 /* VoiceAndNotificationAuditTests.swift */; };
 		A10700000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10800000000000000000001 /* Assets.xcassets */; };
 		A11800000000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10800000000000000000001 /* Assets.xcassets */; };
 		A11100000000000000000001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A11000000000000000000001 /* PrivacyInfo.xcprivacy */; };
@@ -133,6 +134,7 @@
 		A10200000000000000000001 /* RearmProtectionIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RearmProtectionIntent.swift; sourceTree = "<group>"; };
 		A10300000000000000000001 /* OnboardingStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStep.swift; sourceTree = "<group>"; };
 		A10400000000000000000001 /* OnboardingStepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStepTests.swift; sourceTree = "<group>"; };
+		A12400000000000000000002 /* VoiceAndNotificationAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAndNotificationAuditTests.swift; sourceTree = "<group>"; };
 		A10800000000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A11000000000000000000001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B13FF189907372DDB957FCD2 /* OutLoudDeviceActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OutLoudDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -249,6 +251,7 @@
 				6C080D7220C945E98970E983 /* SpeechFlowTests.swift */,
 				B04596368C707D62CD1300E7 /* UI */,
 				A10400000000000000000001 /* OnboardingStepTests.swift */,
+				A12400000000000000000002 /* VoiceAndNotificationAuditTests.swift */,
 				DC6715F95F33E65B1DE0CEDF /* PhraseMatcherTests.swift */,
 			);
 			path = Tests;
@@ -550,6 +553,7 @@
 				B32C5035660E162EA7C23CF7 /* ReminderFlowTests.swift in Sources */,
 				D2C682619C75DF873B72CCBB /* SpeechFlowTests.swift in Sources */,
 				A10600000000000000000001 /* OnboardingStepTests.swift in Sources */,
+				A12400000000000000000001 /* VoiceAndNotificationAuditTests.swift in Sources */,
 				8ABD01E4F74357E481ABE0E2 /* PhraseMatcherTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
