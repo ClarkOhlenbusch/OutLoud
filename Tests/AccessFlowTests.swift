@@ -5,6 +5,42 @@ import XCTest
 
 final class AccessFlowTests: ScreenTimeFlowTestCase {
     @MainActor
+    func testRealAcknowledgementReleasesOnlyRequestedAppAndIgnoresLateSpeech() async throws {
+        let a = try token(1), b = try token(2)
+        var selection = FamilyActivitySelection()
+        selection.applicationTokens = [a, b]
+        SharedSettings.selection = selection
+        SharedSettings.protectionEnabled = true
+        SharedSettings.pendingChallenge = .application(a)
+        ShieldManager.applySavedSelection()
+        let model = AppModel(demoMode: false)
+        let capture = FakeSpeechCapture()
+        let controller = SpeechChallengeController(capture: capture,
+            classify: { await FlexibleAcknowledgementMatcher.evaluate(transcript: $0) },
+            isApplicationActive: { true })
+        let unlocked = expectation(description: "Real classifier completed the access window")
+        controller.requestAndStart(expectedPhrases: model.phrases, acceptsSimilarAcknowledgements: true) {
+            XCTAssertTrue(model.completeChallenge())
+            unlocked.fulfill()
+        }
+        capture.permissions[0](true)
+        let receive = capture.receivers[0]
+        receive(.transcript("This is a bad choice.", isFinal: false))
+        XCTAssertEqual(system.shields.applicationTokens, [a, b])
+        receive(.transcript("This is a bad choice.", isFinal: true))
+        await fulfillment(of: [unlocked], timeout: 20)
+        receive(.transcript("This is a bad choice.", isFinal: true))
+        XCTAssertEqual(system.starts, 1)
+        XCTAssertEqual(system.shields.applicationTokens, [b])
+        XCTAssertNil(SharedSettings.pendingChallenge)
+        XCTAssertFalse(controller.isListening)
+        let window = try XCTUnwrap(SharedSettings.accessWindows.first)
+        system.date = window.expiration
+        AccessWindowManager.expire(activity: window.activity)
+        XCTAssertEqual(system.shields.applicationTokens, [a, b])
+    }
+
+    @MainActor
     func testExpirationMatchesScheduleWhenUnlockStartsBetweenWholeSeconds() throws {
         system.date.addTimeInterval(0.75)
         let a = try token(1)

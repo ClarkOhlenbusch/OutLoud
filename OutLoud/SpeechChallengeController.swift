@@ -21,6 +21,7 @@ protocol SpeechCapture: AnyObject {
 @MainActor
 final class SpeechChallengeController: NSObject, ObservableObject {
     @Published var transcript = ""
+    @Published private(set) var lastRejectedTranscript: String?
     @Published var isListening = false
     @Published var isFinalizing = false
     @Published var isRecovering = false
@@ -40,6 +41,7 @@ final class SpeechChallengeController: NSObject, ObservableObject {
     private var timeoutTask: Task<Void, Never>?
     private var recoveryTask: Task<Void, Never>?
     private var recoveriesRemaining = 0
+    private var rejectionCount = 0
     private var sessionID = UUID()
     private var lastVoiceAt: Date?
 
@@ -96,9 +98,11 @@ final class SpeechChallengeController: NSObject, ObservableObject {
         stop()
         let sessionID = self.sessionID
         transcript = ""
+        lastRejectedTranscript = nil
         errorMessage = nil
         errorTitle = "Couldn’t listen"
         recoveriesRemaining = 1
+        rejectionCount = 0
         capture.requestPermissions { [weak self] allowed in
             guard let self, self.sessionID == sessionID else { return }
             guard allowed else {
@@ -204,13 +208,14 @@ final class SpeechChallengeController: NSObject, ObservableObject {
                     self.classificationTask = nil
                     switch result {
                     case .accepted:
+                        self.lastRejectedTranscript = nil
                         OutLoudLog.speech.info("Final acknowledgement matched")
                         onMatch()
                     case .rejected:
                         self.listenForNextPhrase(
                             expectedPhrases: expectedPhrases,
                             acceptsSimilarAcknowledgements: true,
-                            message: "Still listening. Acknowledge how opening this app would distract you or take time from something that matters.",
+                            message: "I couldn’t match that acknowledgment. Try again, or say a specific phrase instead.",
                             onMatch: onMatch)
                     case .unavailable:
                         self.errorTitle = "Couldn’t check your words"
@@ -218,6 +223,7 @@ final class SpeechChallengeController: NSObject, ObservableObject {
                     }
                 }
             } else if PhraseMatcher.matches(transcript: text, expectedPhrases: expectedPhrases) {
+                lastRejectedTranscript = nil
                 OutLoudLog.speech.info("Final spoken phrase matched")
                 onMatch()
             } else {
@@ -235,12 +241,23 @@ final class SpeechChallengeController: NSObject, ObservableObject {
                                      message: String, onMatch: @escaping () -> Void) {
         // A mismatch is another turn in the same challenge. Each turn gets a
         // fresh transcript and session so old callbacks cannot accept or fail it.
+        let rejectedTranscript = transcript
         stop()
         guard isApplicationActive() else {
             pauseForBackground()
             return
         }
         transcript = ""
+        lastRejectedTranscript = rejectedTranscript
+        rejectionCount += 1
+        OutLoudLog.speech.info("Final phrase rejected; attempt \(self.rejectionCount, privacy: .public) of 3")
+        guard rejectionCount < 3 else {
+            fail(acceptsSimilarAcknowledgements
+                 ? "I couldn’t match your words after three attempts. Check what I heard, then restart listening or say a specific phrase instead."
+                 : "I couldn’t match the phrase after three attempts. Check what I heard, then restart listening and say the displayed phrase.",
+                 title: "Couldn’t match your words")
+            return
+        }
         errorMessage = nil
         statusMessage = message
         recoveriesRemaining = 1

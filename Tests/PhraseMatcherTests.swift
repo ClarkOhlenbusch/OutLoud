@@ -3,6 +3,38 @@ import XCTest
 @testable import OutLoud
 
 final class PhraseMatcherTests: XCTestCase {
+    func testEveryRequiredAcknowledgementRegressionWithBundledModel() throws {
+        try requireBundledModel()
+        let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "acknowledgement-regressions", withExtension: "json"))
+        let cases = try JSONDecoder().decode([String: [String]].self, from: Data(contentsOf: url))
+        XCTAssertEqual(Set(cases.keys), ["acknowledges", "other"])
+        for label in ["acknowledges", "other"] {
+            let texts = try XCTUnwrap(cases[label])
+            XCTAssertFalse(texts.isEmpty)
+            for text in texts {
+                XCTAssertEqual(FlexibleAcknowledgementMatcher.matches(transcript: text), label == "acknowledges", text)
+            }
+        }
+    }
+
+    func testBasicAcknowledgementsWithSpeechPunctuation() throws {
+        try requireBundledModel()
+        for text in ["this is a bad choice", "This is a bad choice.", "This is a bad choice!",
+                     "I am making a bad choice.", "I'm wasting time", "I am wasting my time",
+                     "This is a waste of time", "I'm procrastinating", "This is a poor choice",
+                     "I acknowledge this is a bad choice", "This app is distracting me"] {
+            XCTAssertTrue(FlexibleAcknowledgementMatcher.matches(transcript: text), text)
+        }
+    }
+
+    func testBadChoiceQuestionsAndDenialsStillRejectWithPunctuation() throws {
+        try requireBundledModel()
+        for text in ["This is a bad choice?", "This is not a bad choice",
+                     "This is not a bad choice.", "This is not a bad choice!"] {
+            XCTAssertFalse(FlexibleAcknowledgementMatcher.matches(transcript: text), text)
+        }
+    }
+
     private func requireBundledModel() throws {
         XCTAssertTrue(FlexibleAcknowledgementMatcher.isModelAvailable)
     }
@@ -41,12 +73,24 @@ final class PhraseMatcherTests: XCTestCase {
         XCTAssertEqual(encoded.mask.prefix(9), [1, 1, 1, 1, 1, 1, 1, 1, 0])
     }
 
-    func testNoKeywordOrPhraseCanAcceptWithoutAModelScore() {
+    func testModelDecisionRequiresAValidScore() {
         for text in ["This sandwich is bad", "The weather here is bad", "I had a bad time at dinner", "The soup can wait", "I am making a bad choice"] {
             XCTAssertNotNil(AcknowledgementDecision.modelInput(text))
             XCTAssertFalse(AcknowledgementDecision.accepts(score: nil, threshold: 0.8), text)
             XCTAssertFalse(AcknowledgementDecision.accepts(score: 0.4, threshold: 0.8), text)
         }
+    }
+
+    func testExplicitAcknowledgementsRequireTheWholeUnqualifiedStatement() {
+        for text in ["This is not a bad choice", "This is a bad choice?",
+                     "“This is a bad choice”", "The prompt says this is a bad choice",
+                     "This is a bad choice but I need this for work",
+                     "This is a bad choice of shoes", "Was this a bad choice?",
+                     "Yesterday I said this is a bad choice",
+                     "This is a bad choice. Actually it is necessary."] {
+            XCTAssertFalse(ExplicitAcknowledgementMatcher.matches(text), text)
+        }
+        XCTAssertFalse(ExplicitAcknowledgementMatcher.matches("I know scrolling would take me away from my plans"))
     }
 
     func testModelSeesFullStatementIncludingNegationsAndConcessions() {

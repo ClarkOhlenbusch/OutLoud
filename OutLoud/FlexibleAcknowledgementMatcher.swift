@@ -20,6 +20,33 @@ enum AcknowledgementMatch: Equatable, Sendable {
     case unavailable
 }
 
+/// Complete, explicit admissions have a deterministic meaning in the challenge
+/// context. Never match a substring or discard a question, quotation, or clause.
+enum ExplicitAcknowledgementMatcher {
+    private static let acknowledgements: Set<String> = [
+        "this is a bad choice",
+        "i am making a bad choice",
+        "i am wasting time",
+        "i am wasting my time",
+        "this is a waste of time",
+        "i am procrastinating",
+        "this is a poor choice",
+        "i acknowledge this is a bad choice",
+        "this app is distracting me",
+        "i should be doing something else",
+        "i realize this may not be wise"
+    ]
+
+    static func matches(_ transcript: String) -> Bool {
+        guard !transcript.contains("?") && !transcript.contains("？") else { return false }
+        guard let text = AcknowledgementDecision.modelInput(transcript) else { return false }
+        let statement = text.lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: ".!").union(.whitespacesAndNewlines))
+            .split(whereSeparator: { $0.isWhitespace }).joined(separator: " ")
+        return acknowledgements.contains(statement)
+    }
+}
+
 enum FlexibleAcknowledgementMatcher {
     // Serialize inference and loading off the UI thread. Use the same portable
     // CPU path as evaluation: accelerator rounding can affect borderline scores.
@@ -49,17 +76,20 @@ enum FlexibleAcknowledgementMatcher {
     }
 
     static func evaluate(transcript: String) async -> AcknowledgementMatch {
-        await withCheckedContinuation { continuation in
+        if ExplicitAcknowledgementMatcher.matches(transcript) { return .accepted }
+        return await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: evaluateOnQueue(transcript: transcript)) }
         }
     }
 
     // Synchronous entry point for routing/integration tests. Speech uses evaluate.
     static func matches(transcript: String) -> Bool {
-        queue.sync { evaluateOnQueue(transcript: transcript) == .accepted }
+        if ExplicitAcknowledgementMatcher.matches(transcript) { return true }
+        return queue.sync { evaluateOnQueue(transcript: transcript) == .accepted }
     }
 
     private static func evaluateOnQueue(transcript: String) -> AcknowledgementMatch {
+        guard !transcript.contains("?") && !transcript.contains("？") else { return .rejected }
         guard AcknowledgementDecision.modelInput(transcript) != nil else { return .rejected }
         guard let loadedModel else { return .unavailable }
         do {

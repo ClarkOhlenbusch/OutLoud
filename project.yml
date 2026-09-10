@@ -150,6 +150,8 @@ targets:
       - path: Tests
         excludes:
           - UI
+      - path: ModelTraining/acknowledgement-regressions.json
+        buildPhase: resources
     dependencies:
       - target: OutLoud
     settings:

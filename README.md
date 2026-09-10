@@ -45,35 +45,43 @@ app's window.
 
 Flexible mode is not a chatbot. It is a compact binary classifier trained to answer one question: **did this person acknowledge that opening the app is avoidable or counterproductive?**
 
-In Own words mode, every acceptance comes from the classifier evaluating the
-completed statement. Words such as “bad,” “this,” or “time” never unlock an app
-by themselves. Questions, quotations, denials, unrelated complaints, and
-necessary-use statements are included as negative training examples. Saved
-phrases are used only in Specific phrases mode.
+Own words accepts complete, explicit acknowledgments such as “this is a bad
+choice” directly, including common contractions and terminal periods or
+exclamation marks. This matches the whole statement, preserving questions,
+quotations, negations, and added clauses. Other wording goes to the classifier.
+Words such as “bad,” “this,” or “time” never unlock an app by themselves.
+Questions, quotations, denials, unrelated complaints, and necessary-use
+statements are included as negative training examples. Saved phrases are used
+only in Specific phrases mode.
 
-The classifier is a fine-tuned BERT-Medium model with its WordPiece vocabulary
-bundled inside the app (about 83 MB of model weights). Classification runs
-locally on a background queue using the CPU backend validated by the trainer.
-It needs no Apple Intelligence or OS embedding download.
-The app still supports iOS 17. An unavailable model or timed-out check leaves
-the app locked with a retry message. Speech recognition also requires on-device
+After three rejected attempts, listening stops with a visible transcript and
+retry controls. You can also choose to say a specific phrase for that challenge.
+
+The classifier is a fine-tuned `sentence-transformers/all-MiniLM-L6-v2` model
+with its WordPiece vocabulary bundled inside the app (about 43 MB of model weights,
+down from 83 MB). Classification runs locally on a background queue using the CPU backend
+validated by the trainer. It needs no Apple Intelligence or OS embedding download.
+The app still supports iOS 17. For wording that requires the model, an unavailable
+model or timed-out check leaves the app locked with a retry message. Complete
+explicit acknowledgments do not require model loading. Speech recognition requires on-device
 processing and never falls back to a server.
 
 ### Current model
 
 | Training | Calibration | Final test | Threshold | Precision | Recall | False-positive rate |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 8,540 | 595 | 125 | 0.994 | 95.8% | 92.0% | 2.7% |
+| 8,540 | 1,065 | 125 | 0.980 | 96.0% | 96.0% | 2.7% |
 
-These counts describe the bundled model's original training run. Calibration
-now contains 1,065 examples; the unchanged model achieves 99.0% precision and
-86.2% recall on that expanded set. See the
-[expanded validation report](ModelTraining/acknowledgement-validation.json).
+These counts describe the bundled model's calibration and independent holdout test.
+The full CPU inference path reaches 97.5% precision / 91.4% recall on calibration examples,
+and 96.0% precision / 96.0% recall on the independent 125-example final test (48 true accepts,
+2 false accepts, 73 true rejects, and 2 false rejects).
 
-Metrics cover the complete transcript decision through the exported model,
+Metrics describe the learned model, separately from the explicit-acknowledgment
+path. They cover the complete transcript decision through the exported model,
 including the same normalization, tokenizer, input limits, and score check used
 by the app. The [evaluation report](OutLoud/Models/FlexibleAcknowledgementClassifier.evaluation.json)
-records 46 true accepts, 2 false accepts, 73 true rejects, and 4 false rejects on
+records 48 true accepts, 2 false accepts, 73 true rejects, and 2 false rejects on
 the final set. Training, threshold calibration, and final testing use separate
 corpora. Examples are
 synthetic project data; these figures are not a claim of real-world accuracy.

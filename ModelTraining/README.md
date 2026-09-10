@@ -1,5 +1,19 @@
 # Own words classifier
 
+The app accepts complete, explicit acknowledgments through
+`ExplicitAcknowledgementMatcher` before consulting this model for other wording.
+That path does not match substrings or strip questions, quotations, or clauses.
+`acknowledgement-regressions.json` contains app behavior contracts, bundled into
+the unit tests. The evaluation described below measures the model itself, not
+the combined app matcher. Model weights and threshold were not changed by the
+acknowledgment regression fix.
+
+The historical final-test corpus was inspected during unsuccessful retraining
+experiments for that fix. Its recorded results still describe the original
+shipping model, but it must be retired into calibration and replaced with a
+fresh holdout before future model development/promotion. No experimental model
+was promoted. See [the investigation](../docs/ACKNOWLEDGEMENT_REGRESSION.md).
+
 The positive label, `acknowledges`, means the speaker acknowledges that their
 current or imminent choice to use the app is avoidable, distracting, or
 counterproductive. The challenge provides context, so “I am making a bad choice”
@@ -82,7 +96,7 @@ counts, errors, and a `passes` flag. A successful exit means evaluation complete
 check `passes` for the quality gates. It permits changed calibration data and
 writes no files. Promotion still requires the candidate's original corpus hashes.
 
-The model is [Google BERT-Medium (8 layers, 512 hidden units)](https://huggingface.co/google/bert_uncased_L-8_H-512_A-8),
+The model is [sentence-transformers/all-MiniLM-L6-v2 (6 layers, 384 hidden units)](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2),
 fine-tuned end to end and exported as a Core ML neural network with 16-bit
 weights. Model and WordPiece vocabulary ship inside the app; classification
 requires no downloadable OS embedding or Apple Intelligence. Apache-2.0 license
@@ -91,17 +105,18 @@ and attribution are bundled in `OutLoud/Models/MODEL_LICENSE.txt`.
 Classification stays on device, using the same CPU backend on older and newer supported
 hardware. The app retains its iOS 17 deployment target. Apple's speech recognizer
 also requires on-device execution; its speech assets are separate from the
-fully bundled classifier. Missing/invalid classifier resources, oversized input,
-or inference errors cannot unlock. Run the offline and oldest-device checklist
+fully bundled classifier. Missing/invalid classifier resources or inference
+errors cannot accept model-dependent wording; explicit complete acknowledgments
+use the separate deterministic path. Oversized input cannot unlock. Run the offline and oldest-device checklist
 before release; CPU-only evaluation on a Mac is not an older-iPhone benchmark.
 
 ## Bundled model measurement
 
-The selected checkpoint is epoch 6, with threshold 0.994. The model is 82,500,005
-bytes (about 83 MB), plus a 231,508-byte vocabulary. The full CPU inference path
-reaches 98.0% precision / 85.2% recall on its original 595 calibration examples, and 95.8%
-precision / 92.0% recall on the independent 125-example final test. The final
-set has 46 true accepts, 2 false accepts, 73 true rejects, and 4 false rejects.
+The selected checkpoint is epoch 2, with threshold 0.980. The model is 45,242,165
+bytes (about 43 MB), plus a 231,508-byte vocabulary. The full CPU inference path
+reaches 97.5% precision / 91.4% recall on its calibration examples, and 96.0%
+precision / 96.0% recall on the independent 125-example final test (48 true accepts,
+2 false accepts, 73 true rejects, and 2 false rejects).
 These are synthetic-corpus results, not a guarantee for arbitrary speech.
 
 The calibration corpus subsequently grew to 1,065 examples (465 positive / 600

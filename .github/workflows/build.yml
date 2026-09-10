@@ -25,6 +25,9 @@ jobs:
           xcodebuild -quiet \
             -project OutLoud.xcodeproj -scheme OutLoud \
             -destination "platform=iOS Simulator,id=$test_device" \
+            -derivedDataPath build/SimulatorDerivedData \
             -parallel-testing-enabled NO \
             -resultBundlePath build/SimulatorTests.xcresult \
-            CODE_SIGNING_ALLOWED=NO test
+            CODE_SIGNING_ALLOWED=NO clean test
+      - name: Require real-model and UI regression results
+        run: python3 Scripts/verify-regression-results.py build/SimulatorTests.xcresult

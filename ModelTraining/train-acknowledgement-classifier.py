@@ -72,8 +72,8 @@ if out.resolve() == (root / "OutLoud/Models").resolve():
     raise ValueError(
         "Use a separate candidate directory; shipping assets change only after evaluation."
     )
-name = "google/bert_uncased_L-8_H-512_A-8"
-rev = "53b17ea0d90728ac770dfd13fcb3abdc75e4f4bf"
+name = "sentence-transformers/all-MiniLM-L6-v2"
+rev = "1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 tok = BertTokenizer.from_pretrained(name, revision=rev)
 model = BertForSequenceClassification.from_pretrained(
     name, revision=rev, num_labels=2, attn_implementation="eager"
@@ -247,8 +247,9 @@ for epoch in range(1, 9):
         pr = tp / (tp + fp) if tp + fp else 0
         rec = tp / sum(y for _, y in cal)
         fpr = fp / sum(1 - y for _, y in cal)
+        f1 = (2 * pr * rec / (pr + rec)) if (pr + rec) else 0
         options.append(
-            (pr >= 0.95 and rec >= 0.8 and fpr <= 0.03, pr, rec, -float(t), tp, fp)
+            (pr >= 0.95 and rec >= 0.8 and fpr <= 0.03, f1, rec, pr, -float(t), tp, fp)
         )
     selection = max(options)
     print(
@@ -325,9 +326,9 @@ converted = ct.convert(
     minimum_deployment_target=ct.target.iOS14,
 )
 converted = quantization_utils.quantize_weights(converted, nbits=16)
-converted.author = "OutLoud contributors; pretrained BERT-Medium by Google"
+converted.author = "OutLoud contributors; pretrained all-MiniLM-L6-v2 by sentence-transformers"
 converted.license = (
-    "Apache-2.0 (BERT-Medium weights and vocabulary); see MODEL_LICENSE.txt"
+    "Apache-2.0 (all-MiniLM-L6-v2 weights and vocabulary); see MODEL_LICENSE.txt"
 )
 converted.short_description = "Acknowledges that the current choice to use an app is avoidable or counterproductive."
 converted.version = "2"
@@ -337,15 +338,15 @@ metadata = {
     "selectedEpoch": str(
         json.loads((checkpoint / "calibration.json").read_text())["epoch"]
     ),
-    "architecture": "bert-medium-wordpiece-v1",
+    "architecture": "minilm-l6-v2-wordpiece-v1",
     "shippingThreshold": str(
         json.loads((checkpoint / "calibration.json").read_text())["threshold"]
     ),
     "vocabularySHA256": hashlib.sha256(
         (checkpoint / "vocab.txt").read_bytes()
     ).hexdigest(),
-    "pretrainedModel": "google/bert_uncased_L-8_H-512_A-8",
-    "pretrainedRevision": "53b17ea0d90728ac770dfd13fcb3abdc75e4f4bf",
+    "pretrainedModel": "sentence-transformers/all-MiniLM-L6-v2",
+    "pretrainedRevision": "1110a243fdf4706b3f48f1d95db1a4f5529b4d41",
 }
 for split in ["training", "calibration", "test"]:
     data = (root / f"ModelTraining/acknowledgement-{split}.json").read_bytes()

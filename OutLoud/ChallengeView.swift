@@ -7,6 +7,7 @@ struct ChallengeView: View {
     @StateObject private var speech = SpeechChallengeController()
     @State private var completed = false
     @State private var started = false
+    @State private var usesSpecificPhrases = false
     @State private var returnDestination: ReturnDestination?
     @State private var isReturning = false
     @State private var returnTask: Task<Void, Never>?
@@ -17,77 +18,105 @@ struct ChallengeView: View {
         ZStack {
             Color(red: 0.025, green: 0.022, blue: 0.04).ignoresSafeArea()
 
-            VStack(spacing: 42) {
-                Spacer()
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(spacing: 24) {
+                        Spacer()
 
-                voiceOrb
+                        voiceOrb
 
-                VStack(spacing: 14) {
-                    Text(completionTitle)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                        .foregroundStyle(completed ? .green : .white.opacity(0.7))
+                        VStack(spacing: 14) {
+                            Text(completionTitle)
+                                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                                .foregroundStyle(completed ? .green : .white.opacity(0.7))
 
-                    Text(challengePrompt)
-                        .font(.system(size: 24, weight: .semibold, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 10)
+                            Text(challengePrompt)
+                                .font(.system(size: 24, weight: .semibold, design: .rounded))
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("challenge-prompt")
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 10)
 
-                    if !completed && !speech.transcript.isEmpty {
-                        Text(speech.transcript)
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundStyle(accent.opacity(0.82))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .padding(.horizontal, 18)
-                            .transition(.opacity)
-                    }
+                            if !completed && !speech.transcript.isEmpty {
+                                Text(speech.transcript)
+                                    .font(.system(size: 16, weight: .medium, design: .rounded))
+                                    .foregroundStyle(accent.opacity(0.82))
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .padding(.horizontal, 18)
+                                    .transition(.opacity)
+                            } else if !completed, let rejected = speech.lastRejectedTranscript {
+                                Text("Heard: “\(rejected)”")
+                                    .font(.callout)
+                                    .foregroundStyle(accent.opacity(0.82))
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(3)
+                            }
 
-                    if !completed, let message = speech.statusMessage {
-                        Text(message)
-                            .font(.callout)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                    }
-                }
-
-                if let error = model.challengeErrorMessage ?? speech.errorMessage, !completed {
-                    Text(error)
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-
-                    Button(model.challengeErrorMessage == nil ? "Restart listening" : "Try unlocking again") {
-                        if model.challengeErrorMessage != nil {
-                            finishChallenge()
-                        } else {
-                            startListening()
+                            if !completed, let message = speech.statusMessage {
+                                Text(message)
+                                    .font(.callout)
+                                    .foregroundStyle(.white.opacity(0.7))
+                                    .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
+
+                        if !completed, acceptsSimilarAcknowledgements,
+                           speech.lastRejectedTranscript != nil {
+                            Button("Say a specific phrase instead") {
+                                usesSpecificPhrases = true
+                                startListening()
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(accent)
+                        }
+
+                        if let error = model.challengeErrorMessage ?? speech.errorMessage, !completed {
+                            Text(error)
+                                .font(.callout)
+                                .foregroundStyle(.red)
+                                .multilineTextAlignment(.center)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.horizontal, 24)
+
+                            Button(model.challengeErrorMessage == nil ? "Restart listening" : "Try unlocking again") {
+                                if model.challengeErrorMessage != nil {
+                                    finishChallenge()
+                                } else {
+                                    startListening()
+                                }
+                            }
+                                .buttonStyle(.borderedProminent)
+                                .tint(accent)
+                                .foregroundStyle(.black)
+                        }
+
+                        if model.isDemoMode && !completed {
+                            Button("Simulate a matching phrase") {
+                                speech.stop()
+                                finishChallenge()
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(accent)
+                        }
+
+                        if speech.isListening && !speech.transcript.isEmpty && !completed {
+                            Button("Done speaking") { speech.finishSpeaking() }
+                                .buttonStyle(.bordered)
+                                .tint(accent)
+                        }
+
+                        Spacer()
                     }
-                        .buttonStyle(.borderedProminent)
-                        .tint(accent)
-                        .foregroundStyle(.black)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 64)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity, minHeight: geometry.size.height)
                 }
-
-                if model.isDemoMode && !completed {
-                    Button("Simulate a matching phrase") {
-                        speech.stop()
-                        finishChallenge()
-                    }
-                    .buttonStyle(.bordered)
-                    .tint(accent)
-                }
-
-                if speech.isListening && !speech.transcript.isEmpty && !completed {
-                    Button("Done speaking") { speech.finishSpeaking() }
-                        .buttonStyle(.bordered)
-                        .tint(accent)
-                }
-
-                Spacer()
+                .scrollIndicators(.hidden)
             }
-            .padding(24)
 
             VStack {
                 HStack {
@@ -145,14 +174,18 @@ struct ChallengeView: View {
     private func startListening() {
         speech.requestAndStart(
             expectedPhrases: model.phrases,
-            acceptsSimilarAcknowledgements: model.acceptsSimilarAcknowledgements
+            acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements
         ) {
             finishChallenge()
         }
     }
 
+    private var acceptsSimilarAcknowledgements: Bool {
+        model.acceptsSimilarAcknowledgements && !usesSpecificPhrases
+    }
+
     private var challengePrompt: String {
-        if model.acceptsSimilarAcknowledgements {
+        if acceptsSimilarAcknowledgements {
             return "In your own words, acknowledge this is a bad choice"
         }
         if model.phrases.count == 1 {

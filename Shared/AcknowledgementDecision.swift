@@ -1,6 +1,6 @@
 import Foundation
 
-/// Shared by the app and the trainer: no wording can bypass model inference.
+/// Input and score validation shared by the app's learned matching path and trainer.
 enum AcknowledgementDecision {
     static let label = "acknowledges"
     static let policyVersion = "2"

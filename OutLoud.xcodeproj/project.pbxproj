@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A12100000000000000000001 /* acknowledgement-regressions.json in Resources */ = {isa = PBXBuildFile; fileRef = A12100000000000000000002 /* acknowledgement-regressions.json */; };
 		A12000000000000000000009 /* MODEL_LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000010 /* MODEL_LICENSE.txt */; };
 		A12000000000000000000007 /* AcknowledgementVocabulary.txt in Resources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000008 /* AcknowledgementVocabulary.txt */; };
 		A12000000000000000000005 /* AcknowledgementInference.swift in Sources */ = {isa = PBXBuildFile; fileRef = A12000000000000000000006 /* AcknowledgementInference.swift */; };
@@ -114,6 +115,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A12100000000000000000002 /* acknowledgement-regressions.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = "acknowledgement-regressions.json"; path = "ModelTraining/acknowledgement-regressions.json"; sourceTree = SOURCE_ROOT; };
 		A12000000000000000000010 /* MODEL_LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = MODEL_LICENSE.txt; sourceTree = "<group>"; };
 		A12000000000000000000008 /* AcknowledgementVocabulary.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = AcknowledgementVocabulary.txt; sourceTree = "<group>"; };
 		A12000000000000000000006 /* AcknowledgementInference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AcknowledgementInference.swift; sourceTree = "<group>"; };
@@ -240,6 +242,7 @@
 		E3676C52B5A50346156E4A22 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				A12100000000000000000002 /* acknowledgement-regressions.json */,
 				7670CC4BE4A5F222CB8DDFFD /* AccessFlowTests.swift */,
 				D7028B5ABC3E7BFA5402882E /* FlowTestSupport.swift */,
 				3822F0A4E1BDA1702DD09150 /* ReminderFlowTests.swift */,
@@ -314,6 +317,7 @@
 			buildConfigurationList = 1BF7C9EFE89861405A567ADE /* Build configuration list for PBXNativeTarget "OutLoudTests" */;
 			buildPhases = (
 				349FE799F6B9E7022E59EED3 /* Sources */,
+				A12100000000000000000003 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -490,6 +494,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A12100000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A12100000000000000000001 /* acknowledgement-regressions.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A10900000000000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;

@@ -4,7 +4,7 @@ import Foundation
 
 /// The exact inference path shared by the iPhone app and offline evaluation.
 struct AcknowledgementInference {
-    static let architecture = "bert-medium-wordpiece-v1"
+    static let architecture = "minilm-l6-v2-wordpiece-v1"
     let threshold: Double
     private let model: MLModel
     private let tokenizer: AcknowledgementTokenizer

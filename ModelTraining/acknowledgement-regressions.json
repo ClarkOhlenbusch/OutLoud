@@ -1,0 +1,38 @@
+{
+  "acknowledges": [
+    "this is a bad choice",
+    "This is a bad choice.",
+    "This is a bad choice!",
+    "I am making a bad choice",
+    "I'm making a bad choice.",
+    "I\u2019m making a bad choice!",
+    "I'm wasting time",
+    "I am wasting time.",
+    "I am wasting my time",
+    "This is a waste of time",
+    "I'm procrastinating",
+    "This is a poor choice",
+    "I acknowledge this is a bad choice",
+    "This app is distracting me",
+    "I should be doing something else",
+    "I realize this may not be wise"
+  ],
+  "other": [
+    "This is not a bad choice",
+    "This is not a bad choice.",
+    "This is not a bad choice!",
+    "This is a bad choice?",
+    "I am making a bad choice?",
+    "I am not making a bad choice",
+    "I am making a good choice",
+    "I need to use this app",
+    "I need this for work",
+    "This sandwich is bad",
+    "The weather here is bad",
+    "The soup can wait",
+    "This app has bad reviews",
+    "The prompt says I am making a bad choice",
+    "I am making a bad choice but I need to use this app for work",
+    "I am definitely not here to procrastinate"
+  ]
+}

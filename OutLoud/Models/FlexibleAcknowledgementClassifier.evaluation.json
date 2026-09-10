@@ -1,16 +1,16 @@
 {
   "calibration" : {
-    "falseNegatives" : 34,
-    "falsePositives" : 4,
-    "threshold" : 0.994,
-    "trueNegatives" : 361,
-    "truePositives" : 196
+    "falseNegatives" : 40,
+    "falsePositives" : 11,
+    "threshold" : 0.98,
+    "trueNegatives" : 589,
+    "truePositives" : 425
   },
   "test" : {
-    "falseNegatives" : 4,
+    "falseNegatives" : 2,
     "falsePositives" : 2,
-    "threshold" : 0.994,
+    "threshold" : 0.98,
     "trueNegatives" : 73,
-    "truePositives" : 46
+    "truePositives" : 48
   }
 }

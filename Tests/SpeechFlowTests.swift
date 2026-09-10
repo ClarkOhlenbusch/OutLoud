@@ -17,7 +17,7 @@ final class SpeechFlowTests: XCTestCase {
             var matches = 0
             controller.requestAndStart(expectedPhrases: [expected], acceptsSimilarAcknowledgements: ownWords) { matches += 1 }
             capture.permissions[0](true)
-            for attempt in 0..<3 {
+            for attempt in 0..<2 {
                 let old = capture.receivers[attempt]
                 old(.transcript("I need this for work", isFinal: true))
                 await waitForClassification(controller)
@@ -28,6 +28,7 @@ final class SpeechFlowTests: XCTestCase {
                 XCTAssertNil(controller.errorMessage)
                 XCTAssertNotNil(controller.statusMessage)
                 XCTAssertEqual(controller.transcript, "")
+                XCTAssertEqual(controller.lastRejectedTranscript, "I need this for work")
                 old(.transcript(expected, isFinal: true))
                 old(.failure(interruption))
                 XCTAssertTrue(controller.isListening)
@@ -40,7 +41,72 @@ final class SpeechFlowTests: XCTestCase {
             XCTAssertEqual(matches, 1)
             XCTAssertFalse(controller.isListening)
             XCTAssertNil(controller.statusMessage)
+            XCTAssertNil(controller.lastRejectedTranscript)
         }
+    }
+
+    @MainActor
+    func testRepeatedRejectionsStopAfterThreeAttemptsAndManualRetryResetsBudget() async {
+        for ownWords in [false, true] {
+            let capture = FakeSpeechCapture()
+            let expected = phrase
+            let controller = SpeechChallengeController(capture: capture, classify: {
+                $0 == expected ? .accepted : .rejected
+            }, isApplicationActive: { true })
+            var matches = 0
+            func start() {
+                controller.requestAndStart(expectedPhrases: [expected], acceptsSimilarAcknowledgements: ownWords) { matches += 1 }
+                capture.permissions.last?(true)
+            }
+            start()
+            for _ in 0..<3 {
+                capture.receivers.last?(.transcript("I need this for work", isFinal: true))
+                await waitForClassification(controller)
+            }
+            XCTAssertEqual(capture.starts, 3)
+            XCTAssertFalse(controller.isListening)
+            XCTAssertEqual(controller.errorTitle, "Couldn’t match your words")
+            XCTAssertNotNil(controller.errorMessage)
+            XCTAssertEqual(controller.lastRejectedTranscript, "I need this for work")
+            capture.receivers.last?(.transcript(expected, isFinal: true))
+            XCTAssertEqual(matches, 0)
+            start()
+            capture.receivers.last?(.transcript("I need this for work", isFinal: true))
+            await waitForClassification(controller)
+            XCTAssertTrue(controller.isListening)
+            XCTAssertNil(controller.errorMessage)
+            capture.receivers.last?(.transcript(expected, isFinal: true))
+            await waitForClassification(controller)
+            XCTAssertEqual(matches, 1)
+        }
+    }
+
+    @MainActor
+    func testSpecificPhraseRetryAfterFalseRejectionRequiresFreshFinalSpeech() async {
+        let capture = FakeSpeechCapture()
+        var classifications = 0
+        let controller = SpeechChallengeController(capture: capture, classify: { _ in
+            classifications += 1
+            return .rejected
+        }, isApplicationActive: { true })
+        var matches = 0
+        controller.requestAndStart(expectedPhrases: [phrase], acceptsSimilarAcknowledgements: true) { matches += 1 }
+        capture.permissions[0](true)
+        capture.receivers[0](.transcript("This is a bad choice", isFinal: true))
+        await waitForClassification(controller)
+        XCTAssertEqual(controller.lastRejectedTranscript, "This is a bad choice")
+        let old = capture.receivers.last!
+
+        controller.requestAndStart(expectedPhrases: [phrase], acceptsSimilarAcknowledgements: false) { matches += 1 }
+        capture.permissions.last?(true)
+        XCTAssertNil(controller.lastRejectedTranscript)
+        old(.transcript(phrase, isFinal: true))
+        capture.receivers.last?(.transcript(phrase, isFinal: false))
+        XCTAssertEqual(matches, 0)
+        capture.receivers.last?(.transcript(phrase, isFinal: true))
+        XCTAssertEqual(matches, 1)
+        XCTAssertEqual(classifications, 1)
+        XCTAssertFalse(controller.isListening)
     }
 
     @MainActor

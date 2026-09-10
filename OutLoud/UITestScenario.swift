@@ -14,6 +14,9 @@ enum UITestScenario {
     // excluded from Release/physical devices and only enabled by UI test env.
     static func makeClassifier() -> ((String) async -> AcknowledgementMatch)? {
         guard scenario != nil else { return nil }
+        // Exercise the bundled model through the production asynchronous path.
+        if scenario?.hasPrefix("real-own-words") == true { return nil }
+        if scenario == "speech-rejection-fallback" { return { _ in .rejected } }
         return { $0 == "I am making a bad choice" ? .accepted : .rejected }
     }
 
@@ -75,12 +78,30 @@ enum UITestScenario {
 @MainActor
 private final class ScriptedSpeechCapture: SpeechCapture {
     private var attempts = 0
+    private var finishCurrent: (() -> Void)?
     func requestPermissions(_ completion: @escaping (Bool) -> Void) { completion(true) }
     func start(phrases: [String], receive: @escaping (SpeechCaptureEvent) -> Void) throws {
         attempts += 1
+        if let scenario = UITestScenario.scenario, scenario.hasPrefix("real-own-words") {
+            let acceptedText = ProcessInfo.processInfo.environment["OUTLOUD_UI_TEST_TRANSCRIPT"] ?? "This is a bad choice."
+            let text = (scenario == "real-own-words-retry" && attempts <= 2)
+                || (scenario == "real-own-words-rejection-limit" && attempts <= 3)
+                ? "I need this for work" : acceptedText
+            finishCurrent = { receive(.transcript(text, isFinal: true)) }
+            Task {
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                receive(.transcript(text, isFinal: false))
+                if scenario != "real-own-words-manual-end" {
+                    try? await Task.sleep(nanoseconds: 200_000_000)
+                    receive(.transcript(text, isFinal: true))
+                }
+            }
+            return
+        }
         let interrupt = (UITestScenario.scenario == "speech-interruption" && attempts == 1)
             || (UITestScenario.scenario == "speech-interruption-repeated" && attempts <= 2)
-        let phrase = UITestScenario.scenario == "speech-rejection" && attempts <= 2
+        let phrase = (UITestScenario.scenario == "speech-rejection" && attempts <= 2)
+            || (UITestScenario.scenario == "speech-rejection-limit" && attempts <= 3)
             ? "I need this for work" : phrases.first ?? "I am making a bad choice"
         Task {
             try? await Task.sleep(nanoseconds: 200_000_000)
@@ -91,7 +112,11 @@ private final class ScriptedSpeechCapture: SpeechCapture {
             }
         }
     }
-    func finish() {}
-    func stop() {}
+    func finish() {
+        let finish = finishCurrent
+        finishCurrent = nil
+        finish?()
+    }
+    func stop() { finishCurrent = nil }
 }
 #endif

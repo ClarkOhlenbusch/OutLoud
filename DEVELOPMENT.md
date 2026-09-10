@@ -28,7 +28,8 @@ Run the unit, flow and UI suites on an available iPhone Simulator:
 ```sh
 xcodebuild -project OutLoud.xcodeproj -scheme OutLoud \
   -destination 'platform=iOS Simulator,name=iPhone 17' \
-  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+  -derivedDataPath build/RegressionDerivedData \
+  -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO clean test
 ```
 
 Substitute a Simulator listed by `xcrun simctl list devices available`. The flow
@@ -36,6 +37,12 @@ tests use isolated UserDefaults suites and temporary handoff directories, an
 in-memory Screen Time adapter and scripted speech callbacks. They do not modify
 the real App Group or real managed restrictions. Tests run serially because the
 app and extension code share static service adapters.
+
+Use a clean build when validating a regression. Inspect the result bundle's
+executed test names, not just `TEST SUCCEEDED`: a selected test can be missing
+and execute zero cases. CI uses a separate build directory and runs
+`Scripts/verify-regression-results.py` against its `.xcresult` to require the
+real-model, retry-limit, and UI regression cases to have actually passed.
 
 `OutLoudUITests` uses simulator-only launch fixtures with synthetic tokens and
 audio while exercising the production SwiftUI screens. Those fixtures are
@@ -52,7 +59,8 @@ The current unit tests cover:
 - Usage-reminder interval persistence, independent monitor generations, notification copy, and event-name parsing.
 - Own words versus Specific phrases routing, opposite-intent phrase regressions, reminder cadence changes, and retrying a failed unlock without losing the challenge.
 - Partial/final speech sequences, cancellation, stale callbacks, denied permissions, startup errors and finalization timeout.
-- Automatic listening after rejected phrases in both modes, repeated mismatches, and cancellation/background during classification. A mismatch shows guidance without a retry button; actual recording failures retain Restart listening.
+- Automatic listening after the first two rejected phrases in both modes; the third rejection stops capture and offers Restart listening. Rejections keep the last heard words visible until new speech arrives. Own words offers “Say a specific phrase instead” for the current challenge, using the saved phrases and requiring a fresh final transcript; the saved matching preference stays unchanged. Cancellation/background invalidates pending work.
+- Production matching through the speech controller, access-window creation, and challenge UI, including “this is a bad choice” with periods/exclamation marks, rejection followed by valid speech, Done speaking, and retry after three rejections. A separate UI paraphrase exercises the bundled model. UI checks include full prompt height and reaching retry controls in landscape.
 - Speech-service reconnection, bounded retries, fresh-phrase acceptance, background/cancellation during recovery, and audio interruption/media reset handling. See the [error 1107 investigation](docs/SPEECH_1107_INVESTIGATION.md).
 - Independent app access windows, expiry, stale monitor callbacks, practice, cancellation, relaunch and return-mapping persistence.
 - The extension's reminder handler through cadence changes, duplicate events, per-app progress, midnight reset and failed-monitor recovery.
@@ -71,11 +79,18 @@ For usage reminders, choose each cadence on a physical iPhone, turn protection o
 
 ## Flexible-acknowledgment model
 
-Own words uses a fine-tuned BERT-Medium model and WordPiece vocabulary, both
-bundled with the app. Every accepted transcript requires a model score; there are no
-keyword-based passes or substring vetoes. The app and trainer share input limits
-and score validation in `Shared/AcknowledgementDecision.swift`. Specific phrases
-still uses deterministic normalization and limited recognition tolerance.
+Own words first accepts a small set of complete, explicit acknowledgments using
+`ExplicitAcknowledgementMatcher`. It normalizes contractions, whitespace, and
+terminal periods/exclamation marks. It never matches a substring or removes
+questions, quotation marks, or added clauses. Other wording uses the bundled
+`sentence-transformers/all-MiniLM-L6-v2` model (43 MB, 22.7M parameters) and WordPiece vocabulary.
+The app and trainer share model input limits and score validation in `Shared/AcknowledgementDecision.swift`.
+Specific phrases retains its separate saved-phrase matcher.
+
+`ModelTraining/acknowledgement-regressions.json` is bundled into the unit tests
+and checks the complete production matcher, including both accepted statements
+and negative controls. Model-only evaluation remains separate from these app
+behavior contracts. The model uses an operating threshold of 0.980.
 
 Training, calibration, and final-test corpora are separate. See
 [ModelTraining/README.md](ModelTraining/README.md) for labeling rules, synthetic
@@ -95,15 +110,22 @@ policy and corpus hashes; the adjacent evaluation report records confusion count
 Classification needs no OS embedding download or Apple Intelligence. Speech
 recognition also requires local processing, with no server fallback. Inference
 and model loading are serialized off the main thread; a 15-second timeout or
-unavailable model leaves protection intact. The iOS 17 deployment target is
+unavailable model leaves unrecognized wording blocked; complete explicit
+acknowledgments do not depend on loading the model. The iOS 17 deployment target is
 unchanged. Complete the oldest-device and Airplane Mode checks in
 [the device checklist](docs/DEVICE_VALIDATION.md) before release.
 
 Semantic integration tests now run in Simulator as well as on iPhone because
 all classification resources are bundled. Speech flow tests inject inference
-to control cancellation, failure, and latency. Simulator UI fixtures use a
-classifier stub only for UI test launches; this is excluded from physical-device
-and Release builds and is not evidence of model accuracy.
+to control cancellation, failure, and latency. The access-flow regression also
+uses production matching. UI scenarios prefixed `real-own-words` use the
+production matcher, including a paraphrase that requires bundled-model inference;
+other navigation fixtures use a stub.
+All UI fixtures are excluded from physical-device and Release builds. Scripted
+transcripts still do not test the physical microphone or Apple's recognizer.
+
+See [the acknowledgment regression investigation](docs/ACKNOWLEDGEMENT_REGRESSION.md)
+for the false-rejection, unbounded-retry, layout, and coverage failures.
 
 ## Xcode launch messages
 

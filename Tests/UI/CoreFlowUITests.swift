@@ -13,7 +13,10 @@ final class CoreFlowUITests: XCTestCase {
 #endif
     }
 
-    override func tearDownWithError() throws { app?.terminate() }
+    override func tearDownWithError() throws {
+        app?.terminate()
+        XCUIDevice.shared.orientation = .portrait
+    }
 
     private func launch(_ scenario: String) {
         app.launchEnvironment["OUTLOUD_UI_TEST_SCENARIO"] = scenario
@@ -83,6 +86,92 @@ final class CoreFlowUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Try again"].exists)
         XCTAssertFalse(app.buttons["Restart listening"].exists)
+    }
+
+    func testRejectedOwnWordsCanSwitchToSpecificPhraseAndUnlock() {
+        launch("speech-rejection-fallback")
+        let fallback = app.buttons["Say a specific phrase instead"]
+        XCTAssertTrue(fallback.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Unlocked"].exists)
+        fallback.tap()
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Swipe right along the bottom edge to go back."].exists)
+        XCTAssertFalse(fallback.exists)
+    }
+
+    func testRealClassifierAcceptsBadChoiceThroughChallengeUI() {
+        for text in ["this is a bad choice", "This is a bad choice.", "This is a bad choice!"] {
+            app.launchEnvironment["OUTLOUD_UI_TEST_TRANSCRIPT"] = text
+            launch("real-own-words")
+            XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 20), text)
+            XCTAssertTrue(app.staticTexts["Swipe right along the bottom edge to go back."].exists)
+            XCTAssertFalse(app.buttons["Say a specific phrase instead"].exists)
+            app.terminate()
+        }
+    }
+
+    func testRealClassifierAcceptsValidSpeechAfterRejections() {
+        launch("real-own-words-retry")
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 20))
+    }
+
+    func testModelParaphraseUnlocksThroughChallengeUI() {
+        app.launchEnvironment["OUTLOUD_UI_TEST_TRANSCRIPT"] = "I know scrolling would take me away from my plans"
+        launch("real-own-words")
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 20))
+    }
+
+    func testDoneSpeakingUsesRealClassifierAndUnlocks() {
+        launch("real-own-words-manual-end")
+        let done = app.buttons["Done speaking"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["Unlocked"].exists)
+        XCTAssertTrue(done.isHittable)
+        done.tap()
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 20))
+    }
+
+    func testRealClassifierRepeatedRejectionsStopAndRetryCanUnlock() {
+        launch("real-own-words-rejection-limit")
+        let retry = app.buttons["Restart listening"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 20))
+        XCTAssertTrue(app.staticTexts["Couldn’t match your words"].exists)
+        XCTAssertTrue(app.staticTexts["Heard: “I need this for work”"].exists)
+        XCTAssertFalse(app.staticTexts["Unlocked"].exists)
+        let prompt = app.staticTexts["challenge-prompt"]
+        // A single truncated line used to pass existence checks.
+        XCTAssertGreaterThan(prompt.frame.height, 50)
+        if !retry.isHittable { app.swipeUp() }
+        XCTAssertTrue(retry.isHittable)
+        XCTAssertTrue(app.buttons["Say a specific phrase instead"].isHittable)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Repeated rejection controls"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        retry.tap()
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 20))
+    }
+
+    func testRejectionControlsRemainReachableInLandscape() {
+        launch("speech-rejection-limit")
+        let retry = app.buttons["Restart listening"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 5))
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let rotated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            let w = self.app.windows.firstMatch.frame.width
+            let h = self.app.windows.firstMatch.frame.height
+            return w > h || self.app.frame.width > self.app.frame.height
+        }, object: nil)
+        _ = XCTWaiter.wait(for: [rotated], timeout: 5)
+        app.swipeUp()
+        for _ in 0..<4 where !retry.isHittable { app.swipeUp() }
+        XCTAssertTrue(retry.isHittable)
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "Landscape rejection controls"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        retry.tap()
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
     }
 
     func testRepeatedSpeechInterruptionShowsHelpfulRetryAndRecovers() {

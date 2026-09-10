@@ -1,9 +1,9 @@
-BERT-Medium model and WordPiece vocabulary
-Copyright 2018 The Google AI Language Team Authors.
+all-MiniLM-L6-v2 model and WordPiece vocabulary
+Copyright 2021 sentence-transformers, Apache-2.0 License.
 
-Pretrained model: google/bert_uncased_L-8_H-512_A-8
-Revision: 53b17ea0d90728ac770dfd13fcb3abdc75e4f4bf
-https://huggingface.co/google/bert_uncased_L-8_H-512_A-8
+Pretrained model: sentence-transformers/all-MiniLM-L6-v2
+Revision: 1110a243fdf4706b3f48f1d95db1a4f5529b4d41
+https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
 
 Modified by OutLoud contributors: fine-tuned for acknowledgment classification,
 exported to Core ML with 16-bit weights.
