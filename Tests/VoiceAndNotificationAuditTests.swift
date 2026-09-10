@@ -291,36 +291,35 @@ final class VoiceAndNotificationAuditTests: ScreenTimeFlowTestCase {
         XCTAssertEqual(content.interruptionLevel, .timeSensitive)
     }
 
-    /// 2.D: DeviceActivityMonitor and ShieldAction Entitlements Include Time-Sensitive Key
+    /// 2.D: Host App Entitlements Include Time-Sensitive Key; Extension Entitlements Omit It for Valid Provisioning
     func test2D_deviceActivityMonitorEntitlementsMissingTimeSensitiveKey() throws {
         let testFileURL = URL(fileURLWithPath: #filePath)
         let projectDir = testFileURL.deletingLastPathComponent().deletingLastPathComponent()
 
-        // 1. DeviceActivityMonitor entitlements
-        let monitorEntitlementsURL = projectDir.appendingPathComponent("Configuration/DeviceActivityMonitor.entitlements")
-        let monitorData = try Data(contentsOf: monitorEntitlementsURL)
-        let monitorPlist = try XCTUnwrap(
-            PropertyListSerialization.propertyList(from: monitorData, options: [], format: nil) as? [String: Any]
-        )
-
-        // 2. ShieldAction entitlements
-        let shieldEntitlementsURL = projectDir.appendingPathComponent("Configuration/ShieldAction.entitlements")
-        let shieldData = try Data(contentsOf: shieldEntitlementsURL)
-        let shieldPlist = try XCTUnwrap(
-            PropertyListSerialization.propertyList(from: shieldData, options: [], format: nil) as? [String: Any]
-        )
-
-        // 3. Main app entitlements
+        // 1. Main app entitlements must have time-sensitive capability
         let appEntitlementsURL = projectDir.appendingPathComponent("Configuration/OutLoud.entitlements")
         let appData = try Data(contentsOf: appEntitlementsURL)
         let appPlist = try XCTUnwrap(
             PropertyListSerialization.propertyList(from: appData, options: [], format: nil) as? [String: Any]
         )
-
-        // All targets have the time-sensitive entitlement:
         XCTAssertEqual(appPlist["com.apple.developer.usernotifications.time-sensitive"] as? Bool, true)
-        XCTAssertEqual(monitorPlist["com.apple.developer.usernotifications.time-sensitive"] as? Bool, true)
-        XCTAssertEqual(shieldPlist["com.apple.developer.usernotifications.time-sensitive"] as? Bool, true)
+
+        // 2. Extension entitlements must NOT include time-sensitive key (Apple Developer Portal rejects it on extension profiles)
+        let monitorEntitlementsURL = projectDir.appendingPathComponent("Configuration/DeviceActivityMonitor.entitlements")
+        let monitorData = try Data(contentsOf: monitorEntitlementsURL)
+        let monitorPlist = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: monitorData, options: [], format: nil) as? [String: Any]
+        )
+        XCTAssertNil(monitorPlist["com.apple.developer.usernotifications.time-sensitive"], "Extension profile rejects time-sensitive key")
+        XCTAssertEqual(monitorPlist["com.apple.developer.family-controls"] as? Bool, true)
+
+        let shieldEntitlementsURL = projectDir.appendingPathComponent("Configuration/ShieldAction.entitlements")
+        let shieldData = try Data(contentsOf: shieldEntitlementsURL)
+        let shieldPlist = try XCTUnwrap(
+            PropertyListSerialization.propertyList(from: shieldData, options: [], format: nil) as? [String: Any]
+        )
+        XCTAssertNil(shieldPlist["com.apple.developer.usernotifications.time-sensitive"], "Extension profile rejects time-sensitive key")
+        XCTAssertEqual(shieldPlist["com.apple.developer.family-controls"] as? Bool, true)
     }
 
     /// 2.E: Refresh Monitoring Atomically Cleans Up Partially Started Monitors on Failure

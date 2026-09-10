@@ -96,8 +96,6 @@ targets:
           enabled: 1
         com.apple.FamilyControls:
           enabled: 1
-        com.apple.UserNotifications.time-sensitive:
-          enabled: 1
     info:
       path: Configuration/ShieldAction-Info.plist
       properties:
@@ -124,8 +122,6 @@ targets:
         com.apple.ApplicationGroups.iOS:
           enabled: 1
         com.apple.FamilyControls:
-          enabled: 1
-        com.apple.UserNotifications.time-sensitive:
           enabled: 1
     info:
       path: Configuration/DeviceActivityMonitor-Info.plist
