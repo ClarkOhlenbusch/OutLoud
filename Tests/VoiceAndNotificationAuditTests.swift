@@ -108,6 +108,7 @@ final class VoiceAndNotificationAuditTests: ScreenTimeFlowTestCase {
     func test1C_audioSessionConfigurationLacksBluetoothSupportCausingMicrophoneUnavailable() {
         // Verify audio session category options are strictly valid for .record category
         let options = SystemSpeechCapture.audioSessionCategoryOptions
+        XCTAssertTrue(options.contains(.allowBluetooth), "Bluetooth hands-free microphone input must be supported")
         XCTAssertTrue(options.contains(.duckOthers))
         XCTAssertFalse(options.contains(.allowBluetoothA2DP), "A2DP is invalid for .record and causes paramErr (-50)")
 
@@ -346,5 +347,23 @@ final class VoiceAndNotificationAuditTests: ScreenTimeFlowTestCase {
             system.monitors.isEmpty,
             "Active monitors are cleaned up atomically"
         )
+    }
+
+    /// 2.F: Protection Cannot Be Enabled In Dashboard When Notifications Are Denied
+    @MainActor
+    func test2F_protectionCannotBeEnabledWhenNotificationsAreDenied() async {
+        NotificationPermissionClient.request = { false }
+        NotificationPermissionClient.requiresFallback = { true }
+
+        let model = AppModel(demoMode: false)
+        XCTAssertFalse(model.protectionEnabled)
+
+        await model.enableProtectionWithAuthorizationCheck()
+
+        // Protection remains disabled to avoid locking out the user without notification bridge
+        XCTAssertFalse(model.protectionEnabled)
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertTrue(model.errorMessage!.localizedCaseInsensitiveContains("notifications"))
+        XCTAssertTrue(model.errorMessage!.localizedCaseInsensitiveContains("Settings"))
     }
 }

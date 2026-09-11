@@ -235,6 +235,20 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func enableProtectionWithAuthorizationCheck() async {
+        guard !isDemoMode else {
+            setProtection(true)
+            return
+        }
+        let notificationsAllowed = await requestFallbackNotificationAuthorization()
+        guard notificationsAllowed else {
+            OutLoudLog.screenTime.error("Protection cannot be enabled because notifications are not authorized")
+            errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
+            return
+        }
+        setProtection(true)
+    }
+
     func setProtection(_ enabled: Bool) {
         protectionEnabled = enabled
         OutLoudLog.screenTime.info("Protection changed; enabled: \(enabled, privacy: .public)")

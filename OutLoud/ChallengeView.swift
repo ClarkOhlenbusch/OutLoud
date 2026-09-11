@@ -86,6 +86,17 @@ struct ChallengeView: View {
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(.horizontal, 24)
 
+                            if error.localizedCaseInsensitiveContains("Settings") {
+                                Button("Open Settings") {
+                                    SensoryFeedbackClient.shared.buttonTap()
+                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(accent)
+                            }
+
                             Button(model.challengeErrorMessage == nil ? "Restart listening" : "Try unlocking again") {
                                 SensoryFeedbackClient.shared.buttonTap()
                                 if model.challengeErrorMessage != nil {
@@ -242,10 +253,18 @@ struct ChallengeView: View {
 
     private var voiceOrb: some View {
         let color = completed ? Color.green : accent
-        let level = speech.isListening ? max(speech.audioLevel, 0.025) : 0
-        let ambientPulse = (!completed && speech.isListening && level <= 0.04)
+        let level: CGFloat = speech.isListening ? max(speech.audioLevel, 0.025) : 0
+        let ambientPulse: CGFloat = (!completed && speech.isListening && level <= 0.04)
             ? (ambientBreathing ? 1.04 : 0.97)
             : 1.0
+        let baseScale: CGFloat = (1.0 + (level * 0.7)) * ambientPulse
+        let middleScale: CGFloat = (1.0 + (level * 0.42)) * ambientPulse
+        let innerScale: CGFloat = (1.0 + (level * 0.4)) * ambientPulse
+        let glowOpacity: Double = Double(min(1.0, 0.28 + (level * 0.55)))
+        let centerOpacity: Double = completed ? 0.28 : Double(min(1.0, 0.4 + (level * 0.35)))
+        let strokeOpacity: Double = Double(min(1.0, 0.22 + (level * 0.35)))
+        let shadowRadius: CGFloat = 24.0 + (level * 42.0)
+        let barWeights: [CGFloat] = [0.55, 0.82, 1.0, 0.82, 0.55]
 
         return ZStack {
             if completed {
@@ -258,19 +277,19 @@ struct ChallengeView: View {
             Circle()
                 .fill(color.opacity(0.08))
                 .frame(width: 250, height: 250)
-                .scaleEffect((1 + (level * 0.7)) * ambientPulse)
+                .scaleEffect(baseScale)
                 .blur(radius: 8)
 
             Circle()
-                .stroke(color.opacity(0.22 + (level * 0.35)), lineWidth: 2)
+                .stroke(color.opacity(strokeOpacity), lineWidth: 2)
                 .frame(width: 218, height: 218)
-                .scaleEffect((1 + (level * 0.42)) * ambientPulse)
+                .scaleEffect(middleScale)
 
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.white.opacity(completed ? 0.28 : 0.4 + (level * 0.35)),
+                            Color.white.opacity(centerOpacity),
                             color.opacity(0.82),
                             color.opacity(0.2)
                         ],
@@ -280,8 +299,8 @@ struct ChallengeView: View {
                     )
                 )
                 .frame(width: 178, height: 178)
-                .scaleEffect((1 + (level * 0.4)) * ambientPulse)
-                .shadow(color: color.opacity(0.28 + (level * 0.55)), radius: 24 + (level * 42))
+                .scaleEffect(innerScale)
+                .shadow(color: color.opacity(glowOpacity), radius: shadowRadius)
 
             if completed {
                 Image(systemName: "checkmark")
@@ -290,7 +309,7 @@ struct ChallengeView: View {
                     .scaleEffect(unlockShockwave ? 1.0 : 0.8)
             } else {
                 HStack(alignment: .center, spacing: 8) {
-                    ForEach(Array([0.55, 0.82, 1.0, 0.82, 0.55].enumerated()), id: \.offset) { _, weight in
+                    ForEach(Array(barWeights.enumerated()), id: \.offset) { _, weight in
                         Capsule()
                             .fill(.white.opacity(0.88))
                             .frame(width: 8, height: 18 + (72 * level * weight))

@@ -352,7 +352,7 @@ final class SystemSpeechCapture: SpeechCapture {
     private var task: SFSpeechRecognitionTask?
     private var hasAudioTap = false
 
-    static let audioSessionCategoryOptions: AVAudioSession.CategoryOptions = .duckOthers
+    static let audioSessionCategoryOptions: AVAudioSession.CategoryOptions = [.duckOthers, .allowBluetooth]
 
     static func selectBestOnDeviceRecognizer(
         currentLocale: Locale = .current,
@@ -417,7 +417,12 @@ final class SystemSpeechCapture: SpeechCapture {
             try session.setCategory(.record, mode: .measurement, options: Self.audioSessionCategoryOptions)
         } catch {
             OutLoudLog.speech.notice("Measurement mode unavailable, falling back to default recording session: \(error.localizedDescription, privacy: .public)")
-            try session.setCategory(.record, mode: .default, options: Self.audioSessionCategoryOptions)
+            do {
+                try session.setCategory(.record, mode: .default, options: Self.audioSessionCategoryOptions)
+            } catch {
+                OutLoudLog.speech.notice("Category options unavailable, falling back to basic record: \(error.localizedDescription, privacy: .public)")
+                try session.setCategory(.record, mode: .default)
+            }
         }
         try session.setActive(true, options: .notifyOthersOnDeactivation)
         let request = SFSpeechAudioBufferRecognitionRequest()

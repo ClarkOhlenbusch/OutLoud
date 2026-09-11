@@ -13,6 +13,19 @@ private func accessWindowTitle(for seconds: TimeInterval) -> String {
     accessWindowOptions.first { $0.seconds == seconds }?.title ?? "15 min"
 }
 
+private func contextualErrorTitle(for message: String?) -> String {
+    guard let message else { return "Notice" }
+    if message.localizedCaseInsensitiveContains("notification") {
+        return "Notifications required"
+    } else if message.localizedCaseInsensitiveContains("screen time") {
+        return "Screen Time access"
+    } else if message.localizedCaseInsensitiveContains("dictation") {
+        return "Dictation required"
+    } else {
+        return "Action required"
+    }
+}
+
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showingPicker = false
@@ -67,8 +80,18 @@ struct HomeView: View {
                     .environmentObject(model)
             }
             .onChange(of: model.selection) { _, _ in model.saveSelection() }
-            .alert("Something went wrong", isPresented: errorBinding) {
-                Button("OK", role: .cancel) { model.errorMessage = nil }
+            .alert(contextualErrorTitle(for: model.errorMessage), isPresented: errorBinding) {
+                if model.errorMessage?.localizedCaseInsensitiveContains("Settings") == true {
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                        model.errorMessage = nil
+                    }
+                    Button("Cancel", role: .cancel) { model.errorMessage = nil }
+                } else {
+                    Button("OK", role: .cancel) { model.errorMessage = nil }
+                }
             } message: {
                 Text(model.errorMessage ?? "Please try again.")
             }
@@ -110,7 +133,13 @@ struct HomeView: View {
 
             Button(model.protectionEnabled ? "Turn off" : "Turn on") {
                 SensoryFeedbackClient.shared.lockToggle(isOn: !model.protectionEnabled)
-                model.setProtection(!model.protectionEnabled)
+                if !model.protectionEnabled {
+                    Task {
+                        await model.enableProtectionWithAuthorizationCheck()
+                    }
+                } else {
+                    model.setProtection(false)
+                }
             }
             .font(.body.weight(.semibold))
             .foregroundStyle(model.protectionEnabled ? .white.opacity(0.72) : .black)
@@ -309,8 +338,18 @@ struct OnboardingView: View {
             .environmentObject(model)
         }
         .onChange(of: model.selection) { _, _ in model.saveSelection() }
-        .alert("Something went wrong", isPresented: errorBinding) {
-            Button("OK", role: .cancel) { model.errorMessage = nil }
+        .alert(contextualErrorTitle(for: model.errorMessage), isPresented: errorBinding) {
+            if model.errorMessage?.localizedCaseInsensitiveContains("Settings") == true {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                    model.errorMessage = nil
+                }
+                Button("Cancel", role: .cancel) { model.errorMessage = nil }
+            } else {
+                Button("OK", role: .cancel) { model.errorMessage = nil }
+            }
         } message: {
             Text(model.errorMessage ?? "Please try again.")
         }
@@ -1166,7 +1205,13 @@ private struct UsageReminderSetupView: View {
                 }
             }
             .alert("Notifications unavailable", isPresented: errorBinding) {
-                Button("OK", role: .cancel) { model.errorMessage = nil }
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                    model.errorMessage = nil
+                }
+                Button("Cancel", role: .cancel) { model.errorMessage = nil }
             } message: {
                 Text(model.errorMessage ?? "Allow notifications for OutLoud in Settings.")
             }
