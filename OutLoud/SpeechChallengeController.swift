@@ -428,7 +428,13 @@ final class SystemSpeechCapture: SpeechCapture {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         request.taskHint = .confirmation
-        request.contextualStrings = Array(phrases.prefix(100))
+        request.contextualStrings = phrases.isEmpty
+            ? [
+                "bad choice", "wasting time", "procrastinating", "distracting me",
+                "poor choice", "poor decision", "doomscrolling", "stop scrolling",
+                "should be working", "get back to work"
+              ]
+            : Array(phrases.prefix(100))
         // Do not silently fall back to sending audio to a server.
         request.requiresOnDeviceRecognition = true
         self.request = request

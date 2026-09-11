@@ -34,10 +34,17 @@ enum ExplicitAcknowledgementMatcher {
         "i acknowledge this is a bad choice",
         "this app is distracting me",
         "i should be doing something else",
+        "i should be working",
+        "i should be working right now",
+        "i need to get back to work",
+        "i need to stop scrolling",
+        "i am doomscrolling",
+        "i am doomscrolling right now",
         "i realize this may not be wise",
         "bad choice",
         "wasting time",
         "poor choice",
+        "poor decision",
         "distracting choice"
     ]
 

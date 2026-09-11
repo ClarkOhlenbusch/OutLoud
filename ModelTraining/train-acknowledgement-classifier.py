@@ -165,7 +165,7 @@ subprocess.run(
 for text, actual in zip(parity_texts, json.loads(parity_output.read_text())):
     normalized = normalized_input(text)
     valid = (
-        3 <= len(normalized.split()) <= 80
+        2 <= len(normalized.split()) <= 80
         and len(normalized.encode("utf-16-le")) // 2 <= 400
         and any(c.isalpha() for c in normalized)
         and not any(
@@ -272,7 +272,7 @@ for epoch in range(1, 9):
             json.dumps(
                 {
                     "epoch": epoch,
-                    "threshold": -selection[3],
+                    "threshold": -selection[4],
                     "metrics": selection,
                     "scores": scores,
                 }
@@ -281,7 +281,7 @@ for epoch in range(1, 9):
     # Keep the schedule fixed; threshold and epoch are chosen only on calibration.
 print("best", best, flush=True)
 for (s, y), p in zip(cal, chosen):
-    if (p >= -best[3]) != bool(y):
+    if (p >= -best[4]) != bool(y):
         print("false positive" if y == 0 else "false negative", p, s, flush=True)
 
 if not best[0]:

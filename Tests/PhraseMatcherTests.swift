@@ -22,7 +22,9 @@ final class PhraseMatcherTests: XCTestCase {
         for text in ["this is a bad choice", "This is a bad choice.", "This is a bad choice!",
                      "I am making a bad choice.", "I'm wasting time", "I am wasting my time",
                      "This is a waste of time", "I'm procrastinating", "This is a poor choice",
-                     "I acknowledge this is a bad choice", "This app is distracting me"] {
+                     "I acknowledge this is a bad choice", "This app is distracting me",
+                     "I should be working", "I need to get back to work", "I am doomscrolling",
+                     "I'm doomscrolling right now", "Poor decision", "Bad choice"] {
             XCTAssertTrue(FlexibleAcknowledgementMatcher.matches(transcript: text), text)
         }
     }
