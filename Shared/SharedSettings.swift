@@ -31,6 +31,7 @@ enum SharedSettings {
         static let phrase = "phrase"
         static let phrases = "phrases"
         static let acceptsSimilarAcknowledgements = "acceptsSimilarAcknowledgements"
+        static let challengeMode = "challengeMode"
         static let protectionEnabled = "protectionEnabled"
         static let askAgainMode = "askAgainMode"
         static let gracePeriod = "gracePeriod"
@@ -97,6 +98,16 @@ enum SharedSettings {
     static var acceptsSimilarAcknowledgements: Bool {
         get { defaults.object(forKey: Key.acceptsSimilarAcknowledgements) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.acceptsSimilarAcknowledgements) }
+    }
+
+    static var challengeMode: ChallengeMode {
+        get {
+            guard let rawValue = defaults.string(forKey: Key.challengeMode) else {
+                return .speak
+            }
+            return ChallengeMode(rawValue: rawValue) ?? .speak
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.challengeMode) }
     }
 
     static var protectionEnabled: Bool {
@@ -288,6 +299,38 @@ enum SharedSettings {
         return FileManager.default
             .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
             .appendingPathComponent(pendingChallengeFilename, isDirectory: false)
+    }
+}
+
+enum ChallengeMode: String, CaseIterable, Codable, Identifiable {
+    case speak
+    case type
+    case either
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .speak: "Say out loud"
+        case .type: "Type"
+        case .either: "Say or type"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .speak: "Speak your acknowledgment or phrase out loud."
+        case .type: "Type “This is a bad choice” to unlock."
+        case .either: "Say your acknowledgment or type “This is a bad choice”."
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .speak: "mic.fill"
+        case .type: "keyboard.fill"
+        case .either: "bubble.left.and.text.bubble.right.fill"
+        }
     }
 }
 

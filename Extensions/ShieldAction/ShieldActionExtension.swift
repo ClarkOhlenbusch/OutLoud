@@ -74,13 +74,28 @@ final class ShieldActionExtension: ShieldActionDelegate {
 
     private func sendChallengeNotification() {
         let content = UNMutableNotificationContent()
-        content.title = "Say it out loud"
-        if SharedSettings.acceptsSimilarAcknowledgements {
-            content.body = "Tap to acknowledge the choice out loud and continue."
-        } else if SharedSettings.phrases.count == 1 {
-            content.body = "Tap to say “\(SharedSettings.phrases[0])” and continue."
-        } else {
-            content.body = "Tap to say one of your phrases and continue."
+        switch SharedSettings.challengeMode {
+        case .speak:
+            content.title = "Say it out loud"
+            if SharedSettings.acceptsSimilarAcknowledgements {
+                content.body = "Tap to acknowledge the choice out loud and continue."
+            } else if SharedSettings.phrases.count == 1 {
+                content.body = "Tap to say “\(SharedSettings.phrases[0])” and continue."
+            } else {
+                content.body = "Tap to say one of your phrases and continue."
+            }
+        case .type:
+            content.title = "Type to unlock"
+            content.body = "Tap to type “This is a bad choice” and continue."
+        case .either:
+            content.title = "Say or type to unlock"
+            if SharedSettings.acceptsSimilarAcknowledgements {
+                content.body = "Tap to say your acknowledgment or type “This is a bad choice”."
+            } else if SharedSettings.phrases.count == 1 {
+                content.body = "Tap to say “\(SharedSettings.phrases[0])” or type “This is a bad choice”."
+            } else {
+                content.body = "Tap to say one of your phrases or type “This is a bad choice”."
+            }
         }
         content.sound = .default
         content.interruptionLevel = .timeSensitive

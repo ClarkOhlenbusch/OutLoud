@@ -10,6 +10,7 @@ final class AppModel: ObservableObject {
     @Published var selection: FamilyActivitySelection
     @Published var phrase: String
     @Published var acceptsSimilarAcknowledgements: Bool
+    @Published var challengeMode: ChallengeMode
     @Published var protectionEnabled: Bool
     @Published var askAgainMode: AskAgainMode
     @Published var gracePeriod: TimeInterval
@@ -34,6 +35,7 @@ final class AppModel: ObservableObject {
         selection = SharedSettings.selection
         phrase = SharedSettings.phrases.joined(separator: "\n")
         acceptsSimilarAcknowledgements = SharedSettings.acceptsSimilarAcknowledgements
+        challengeMode = SharedSettings.challengeMode
         protectionEnabled = SharedSettings.protectionEnabled
         askAgainMode = SharedSettings.askAgainMode
         gracePeriod = SharedSettings.gracePeriod
@@ -85,10 +87,21 @@ final class AppModel: ObservableObject {
         PhraseMatcher.phrases(from: phrase)
     }
 
-    var phraseSummary: String {
+    var responseStyleSummary: String {
         if acceptsSimilarAcknowledgements { return "Own words" }
         let savedPhrases = phrases
         return savedPhrases.count == 1 ? "1 phrase" : "\(savedPhrases.count) phrases"
+    }
+
+    var phraseSummary: String {
+        switch challengeMode {
+        case .speak:
+            "Say out loud · \(responseStyleSummary)"
+        case .type:
+            "Type · “This is a bad choice”"
+        case .either:
+            "Say or type · \(responseStyleSummary)"
+        }
     }
 
     var selectedItemCount: Int {
@@ -208,6 +221,14 @@ final class AppModel: ObservableObject {
             Task { await FlexibleAcknowledgementMatcher.prepareModel() }
 #endif
         }
+    }
+
+    func setChallengeMode(_ mode: ChallengeMode) {
+        challengeMode = mode
+        SharedSettings.challengeMode = mode
+        OutLoudLog.challenge.info(
+            "Challenge mode changed: \(mode.rawValue, privacy: .public)"
+        )
     }
 
     func returnDestination(for token: ApplicationToken) -> ReturnDestination? {

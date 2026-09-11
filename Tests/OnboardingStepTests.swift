@@ -29,6 +29,60 @@ final class OnboardingStepTests: ScreenTimeFlowTestCase {
         XCTAssertEqual(OnboardingStep.progressCount, 6)
     }
 
+    func testChallengeModesHaveStableStoredValues() {
+        XCTAssertEqual(ChallengeMode(rawValue: "speak"), .speak)
+        XCTAssertEqual(ChallengeMode(rawValue: "type"), .type)
+        XCTAssertEqual(ChallengeMode(rawValue: "either"), .either)
+        XCTAssertNil(ChallengeMode(rawValue: "unknown"))
+
+        XCTAssertEqual(ChallengeMode.speak.title, "Say out loud")
+        XCTAssertEqual(ChallengeMode.type.title, "Type")
+        XCTAssertEqual(ChallengeMode.either.title, "Say or type")
+    }
+
+    @MainActor
+    func testChallengeModeDefaultsAndPersistence() {
+        XCTAssertEqual(SharedSettings.challengeMode, .speak)
+        let model = AppModel()
+        XCTAssertEqual(model.challengeMode, .speak)
+
+        model.setChallengeMode(.type)
+        XCTAssertEqual(model.challengeMode, .type)
+        XCTAssertEqual(SharedSettings.challengeMode, .type)
+
+        model.setChallengeMode(.either)
+        XCTAssertEqual(model.challengeMode, .either)
+        XCTAssertEqual(SharedSettings.challengeMode, .either)
+
+        model.setChallengeMode(.speak)
+        XCTAssertEqual(model.challengeMode, .speak)
+        XCTAssertEqual(SharedSettings.challengeMode, .speak)
+    }
+
+    @MainActor
+    func testChallengeModeSummariesReflectSelectedOptions() {
+        let model = AppModel()
+        model.setAcceptsSimilarAcknowledgements(true)
+        model.setChallengeMode(.speak)
+        XCTAssertEqual(model.responseStyleSummary, "Own words")
+        XCTAssertEqual(model.phraseSummary, "Say out loud · Own words")
+
+        model.setChallengeMode(.type)
+        XCTAssertEqual(model.phraseSummary, "Type · “This is a bad choice”")
+
+        model.setChallengeMode(.either)
+        XCTAssertEqual(model.phraseSummary, "Say or type · Own words")
+
+        model.setAcceptsSimilarAcknowledgements(false)
+        model.phrase = "I am making a bad choice"
+        model.setChallengeMode(.type)
+        XCTAssertEqual(model.responseStyleSummary, "1 phrase")
+        XCTAssertEqual(model.phraseSummary, "Type · “This is a bad choice”")
+
+        model.setChallengeMode(.either)
+        XCTAssertEqual(model.phraseSummary, "Say or type · 1 phrase")
+    }
+
     func testAskAgainModesHaveStableStoredValues() {
         XCTAssertEqual(AskAgainMode(rawValue: "everyVisit"), .everyVisit)
         XCTAssertEqual(AskAgainMode(rawValue: "afterTime"), .afterTime)

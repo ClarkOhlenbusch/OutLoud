@@ -31,6 +31,7 @@ struct HomeView: View {
     @State private var showingPicker = false
     @State private var showingDemoPicker = false
     @State private var showingPhraseEditor = false
+    @State private var showingChallengeModeSetup = false
     @State private var showingAskAgainSetup = false
     @State private var showingReturnSetup = false
     @State private var showingUsageReminderSetup = false
@@ -58,6 +59,10 @@ struct HomeView: View {
             .familyActivityPicker(isPresented: $showingPicker, selection: $model.selection)
             .sheet(isPresented: $showingDemoPicker) {
                 DemoAppPicker(selectedApps: $model.demoSelectedApps)
+            }
+            .sheet(isPresented: $showingChallengeModeSetup) {
+                ChallengeModeSetupView()
+                    .environmentObject(model)
             }
             .sheet(isPresented: $showingPhraseEditor) {
                 PhraseEditorView()
@@ -168,9 +173,19 @@ struct HomeView: View {
             Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
 
             SettingsRow(
+                icon: model.challengeMode.icon,
+                title: "Challenge mode",
+                value: model.challengeMode.title
+            ) {
+                showingChallengeModeSetup = true
+            }
+
+            Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
+
+            SettingsRow(
                 icon: "quote.bubble.fill",
                 title: "Response",
-                value: model.phraseSummary
+                value: model.responseStyleSummary
             ) {
                 showingPhraseEditor = true
             }
@@ -227,7 +242,7 @@ struct HomeView: View {
             SensoryFeedbackClient.shared.selection()
             model.beginPractice()
         } label: {
-            Label("Practice the pause", systemImage: "mic.fill")
+            Label("Practice the pause", systemImage: model.challengeMode.icon)
         }
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(outLoudAccent)
@@ -499,34 +514,75 @@ struct OnboardingView: View {
 
     private var phrasePage: some View {
         OnboardingPage(
-            icon: "quote.bubble.fill",
-            title: "What will you say?",
-            message: model.acceptsSimilarAcknowledgements
-                ? "Acknowledge it’s a bad choice."
-                : "Say one of your phrases."
+            icon: model.challengeMode.icon,
+            title: onboardingPhraseTitle,
+            message: onboardingPhraseMessage
         ) {
             VStack(spacing: 14) {
-                AcknowledgementModePicker(selection: acknowledgementMode)
+                ChallengeModeSegmentedPicker(selection: Binding(
+                    get: { model.challengeMode },
+                    set: { model.setChallengeMode($0) }
+                ))
 
-                if !model.acceptsSimilarAcknowledgements {
-                    TextEditor(text: $model.phrase)
-                        .focused($phraseIsFocused)
-                        .font(.title3.weight(.semibold))
-                        .multilineTextAlignment(.center)
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 120, maxHeight: 190)
-                        .padding(14)
-                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                        .transition(.opacity.combined(with: .move(edge: .top)))
+                if model.challengeMode == .type {
+                    HStack(spacing: 12) {
+                        Image(systemName: "keyboard.fill")
+                            .font(.title3)
+                            .foregroundStyle(outLoudAccent)
+                        Text("Type “This is a bad choice” to unlock.")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                } else {
+                    AcknowledgementModePicker(selection: acknowledgementMode)
+
+                    if !model.acceptsSimilarAcknowledgements {
+                        TextEditor(text: $model.phrase)
+                            .focused($phraseIsFocused)
+                            .font(.title3.weight(.semibold))
+                            .multilineTextAlignment(.center)
+                            .scrollContentBackground(.hidden)
+                            .frame(minHeight: 120, maxHeight: 190)
+                            .padding(14)
+                            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: model.acceptsSimilarAcknowledgements)
+            .animation(.easeInOut(duration: 0.2), value: model.challengeMode)
         } action: {
             primaryButton("Practice") {
                 phraseIsFocused = false
                 model.savePhrase()
                 model.beginPractice()
             }
+        }
+    }
+
+    private var onboardingPhraseTitle: String {
+        switch model.challengeMode {
+        case .speak: "What will you say?"
+        case .type: "Type to pause"
+        case .either: "How will you pause?"
+        }
+    }
+
+    private var onboardingPhraseMessage: String {
+        switch model.challengeMode {
+        case .speak:
+            return model.acceptsSimilarAcknowledgements
+                ? "Acknowledge it’s a bad choice."
+                : "Say one of your phrases."
+        case .type:
+            return "Type “This is a bad choice” to unlock your apps."
+        case .either:
+            return model.acceptsSimilarAcknowledgements
+                ? "Acknowledge it out loud or type “This is a bad choice”."
+                : "Choose your phrase or type “This is a bad choice”."
         }
     }
 
@@ -808,28 +864,61 @@ private struct PhraseEditorView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
-                        Text(model.acceptsSimilarAcknowledgements
-                            ? "Acknowledge it’s a bad choice."
-                            : "Say one of your phrases.")
+                        Text(phraseEditorHeader)
                             .font(.title2.bold())
 
-                        AcknowledgementModePicker(selection: acknowledgementMode)
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Mode")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+                            ChallengeModeSegmentedPicker(selection: Binding(
+                                get: { model.challengeMode },
+                                set: { model.setChallengeMode($0) }
+                            ))
+                        }
 
-                        if !model.acceptsSimilarAcknowledgements {
-                            TextEditor(text: $model.phrase)
-                                .focused($phraseIsFocused)
-                                .font(.title3.weight(.semibold))
-                                .scrollContentBackground(.hidden)
-                                .frame(minHeight: 130, maxHeight: 220)
+                        if model.challengeMode == .type {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Requirement")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.72))
+                                HStack(spacing: 12) {
+                                    Image(systemName: "keyboard.fill")
+                                        .font(.title3)
+                                        .foregroundStyle(outLoudAccent)
+                                    Text("Type “This is a bad choice” to unlock.")
+                                        .font(.body.weight(.medium))
+                                        .foregroundStyle(.white)
+                                }
                                 .padding(16)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text(model.challengeMode == .either ? "Voice recognition" : "Recognition")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white.opacity(0.72))
+                                AcknowledgementModePicker(selection: acknowledgementMode)
+                            }
+
+                            if !model.acceptsSimilarAcknowledgements {
+                                TextEditor(text: $model.phrase)
+                                    .focused($phraseIsFocused)
+                                    .font(.title3.weight(.semibold))
+                                    .scrollContentBackground(.hidden)
+                                    .frame(minHeight: 130, maxHeight: 220)
+                                    .padding(16)
+                                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
                         }
 
                         Spacer()
                     }
                     .padding(20)
                     .animation(.easeInOut(duration: 0.2), value: model.acceptsSimilarAcknowledgements)
+                    .animation(.easeInOut(duration: 0.2), value: model.challengeMode)
                 }
             }
             .navigationTitle("Response")
@@ -855,6 +944,21 @@ private struct PhraseEditorView: View {
                 model.setAcceptsSimilarAcknowledgements($0)
             }
         )
+    }
+
+    private var phraseEditorHeader: String {
+        switch model.challengeMode {
+        case .speak:
+            return model.acceptsSimilarAcknowledgements
+                ? "Acknowledge it’s a bad choice."
+                : "Say one of your phrases."
+        case .type:
+            return "Type “This is a bad choice” to unlock."
+        case .either:
+            return model.acceptsSimilarAcknowledgements
+                ? "Acknowledge it out loud or type “This is a bad choice”."
+                : "Say one of your phrases or type “This is a bad choice”."
+        }
     }
 }
 
@@ -1667,6 +1771,117 @@ struct SensoryFeedbackSetupView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+struct ChallengeModeSetupView: View {
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                OutLoudBackground()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 22) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("How should OutLoud pause you?")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                            Text("Choose whether you must say your response out loud, type it out, or have the option to do either.")
+                                .font(.body)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        VStack(spacing: 12) {
+                            ForEach(ChallengeMode.allCases) { mode in
+                                ChallengeModeOption(
+                                    icon: mode.icon,
+                                    title: mode.title,
+                                    detail: mode.detail,
+                                    selected: model.challengeMode == mode
+                                ) {
+                                    model.setChallengeMode(mode)
+                                }
+                            }
+                        }
+                    }
+                    .padding(20)
+                    .padding(.bottom, 24)
+                }
+            }
+            .navigationTitle("Challenge mode")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+private struct ChallengeModeOption: View {
+    let icon: String
+    let title: String
+    let detail: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: {
+            SensoryFeedbackClient.shared.selection()
+            action()
+        }) {
+            HStack(spacing: 13) {
+                Image(systemName: icon)
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(selected ? outLoudAccent : .white.opacity(0.62))
+                    .frame(width: 30)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: 10)
+
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(selected ? outLoudAccent : .white.opacity(0.22))
+            }
+            .foregroundStyle(.white)
+            .padding(15)
+            .background(
+                selected ? outLoudAccent.opacity(0.1) : .white.opacity(0.055),
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(selected ? outLoudAccent.opacity(0.5) : .white.opacity(0.07), lineWidth: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct ChallengeModeSegmentedPicker: View {
+    @Binding var selection: ChallengeMode
+
+    var body: some View {
+        Picker("Challenge mode", selection: $selection) {
+            ForEach(ChallengeMode.allCases) { mode in
+                Text(mode.title).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
     }
 }
 

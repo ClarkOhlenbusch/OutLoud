@@ -267,4 +267,35 @@ final class AccessFlowTests: ScreenTimeFlowTestCase {
         model.saveSelection()
         XCTAssertTrue(SharedSettings.returnMappings.isEmpty)
     }
+
+    @MainActor
+    func testChallengeModeTypeUnlocksOnThisIsABadChoice() throws {
+        let a = try token(1)
+        var selection = FamilyActivitySelection()
+        selection.applicationTokens = [a]
+        SharedSettings.selection = selection
+        SharedSettings.protectionEnabled = true
+        SharedSettings.challengeMode = .type
+        let model = AppModel(demoMode: false)
+        model.pendingChallenge = .application(a)
+
+        let requiredPhrase = "This is a bad choice"
+        XCTAssertTrue(PhraseMatcher.matches(transcript: "This is a bad choice", expected: requiredPhrase))
+        XCTAssertTrue(PhraseMatcher.matches(transcript: "this is a bad choice.", expected: requiredPhrase))
+        XCTAssertTrue(PhraseMatcher.matches(transcript: "  THIS IS A BAD CHOICE!  ", expected: requiredPhrase))
+        XCTAssertTrue(model.completeChallenge())
+        XCTAssertNil(SharedSettings.pendingChallenge)
+        XCTAssertEqual(SharedSettings.accessWindows.count, 1)
+    }
+
+    @MainActor
+    func testChallengeModeTypeRejectsInterrogativesAndMismatches() throws {
+        let requiredPhrase = "This is a bad choice"
+        let question = "Is this a bad choice?"
+        XCTAssertTrue(question.contains("?"))
+
+        let wrongPhrase = "I want to open instagram"
+        XCTAssertFalse(PhraseMatcher.matches(transcript: wrongPhrase, expected: requiredPhrase))
+        XCTAssertFalse(PhraseMatcher.matches(transcript: "Random sentence", expected: requiredPhrase))
+    }
 }
