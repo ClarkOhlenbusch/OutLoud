@@ -320,8 +320,8 @@ enum ChallengeMode: String, CaseIterable, Codable, Identifiable {
     var detail: String {
         switch self {
         case .speak: "Speak your acknowledgment or phrase out loud."
-        case .type: "Type “This is a bad choice” to unlock."
-        case .either: "Say your acknowledgment or type “This is a bad choice”."
+        case .type: "Type your acknowledgment or phrase."
+        case .either: "Choose whether to speak or type each time."
         }
     }
 

@@ -524,32 +524,18 @@ struct OnboardingView: View {
                     set: { model.setChallengeMode($0) }
                 ))
 
-                if model.challengeMode == .type {
-                    HStack(spacing: 12) {
-                        Image(systemName: "keyboard.fill")
-                            .font(.title3)
-                            .foregroundStyle(outLoudAccent)
-                        Text("Type “This is a bad choice” to unlock.")
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                } else {
-                    AcknowledgementModePicker(selection: acknowledgementMode)
+                AcknowledgementModePicker(selection: acknowledgementMode)
 
-                    if !model.acceptsSimilarAcknowledgements {
-                        TextEditor(text: $model.phrase)
-                            .focused($phraseIsFocused)
-                            .font(.title3.weight(.semibold))
-                            .multilineTextAlignment(.center)
-                            .scrollContentBackground(.hidden)
-                            .frame(minHeight: 120, maxHeight: 190)
-                            .padding(14)
-                            .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                if !model.acceptsSimilarAcknowledgements {
+                    TextEditor(text: $model.phrase)
+                        .focused($phraseIsFocused)
+                        .font(.title3.weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 120, maxHeight: 190)
+                        .padding(14)
+                        .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                        .transition(.opacity.combined(with: .move(edge: .top)))
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: model.acceptsSimilarAcknowledgements)
@@ -566,7 +552,7 @@ struct OnboardingView: View {
     private var onboardingPhraseTitle: String {
         switch model.challengeMode {
         case .speak: "What will you say?"
-        case .type: "Type to pause"
+        case .type: "What will you type?"
         case .either: "How will you pause?"
         }
     }
@@ -578,11 +564,13 @@ struct OnboardingView: View {
                 ? "Acknowledge it’s a bad choice."
                 : "Say one of your phrases."
         case .type:
-            return "Type “This is a bad choice” to unlock your apps."
+            return model.acceptsSimilarAcknowledgements
+                ? "Type an acknowledgment that it’s a bad choice."
+                : "Type one of your phrases."
         case .either:
             return model.acceptsSimilarAcknowledgements
-                ? "Acknowledge it out loud or type “This is a bad choice”."
-                : "Choose your phrase or type “This is a bad choice”."
+                ? "Acknowledge it out loud or in writing."
+                : "Choose your phrase."
         }
     }
 
@@ -877,41 +865,22 @@ private struct PhraseEditorView: View {
                             ))
                         }
 
-                        if model.challengeMode == .type {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Requirement")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white.opacity(0.72))
-                                HStack(spacing: 12) {
-                                    Image(systemName: "keyboard.fill")
-                                        .font(.title3)
-                                        .foregroundStyle(outLoudAccent)
-                                    Text("Type “This is a bad choice” to unlock.")
-                                        .font(.body.weight(.medium))
-                                        .foregroundStyle(.white)
-                                }
-                                .padding(16)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                            }
-                        } else {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text(model.challengeMode == .either ? "Voice recognition" : "Recognition")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white.opacity(0.72))
-                                AcknowledgementModePicker(selection: acknowledgementMode)
-                            }
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Recognition")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.72))
+                            AcknowledgementModePicker(selection: acknowledgementMode)
+                        }
 
-                            if !model.acceptsSimilarAcknowledgements {
-                                TextEditor(text: $model.phrase)
-                                    .focused($phraseIsFocused)
-                                    .font(.title3.weight(.semibold))
-                                    .scrollContentBackground(.hidden)
-                                    .frame(minHeight: 130, maxHeight: 220)
-                                    .padding(16)
-                                    .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
-                            }
+                        if !model.acceptsSimilarAcknowledgements {
+                            TextEditor(text: $model.phrase)
+                                .focused($phraseIsFocused)
+                                .font(.title3.weight(.semibold))
+                                .scrollContentBackground(.hidden)
+                                .frame(minHeight: 130, maxHeight: 220)
+                                .padding(16)
+                                .background(.white.opacity(0.07), in: RoundedRectangle(cornerRadius: 16))
+                                .transition(.opacity.combined(with: .move(edge: .top)))
                         }
 
                         Spacer()
@@ -953,11 +922,13 @@ private struct PhraseEditorView: View {
                 ? "Acknowledge it’s a bad choice."
                 : "Say one of your phrases."
         case .type:
-            return "Type “This is a bad choice” to unlock."
+            return model.acceptsSimilarAcknowledgements
+                ? "Type an acknowledgment that it’s a bad choice."
+                : "Type one of your phrases."
         case .either:
             return model.acceptsSimilarAcknowledgements
-                ? "Acknowledge it out loud or type “This is a bad choice”."
-                : "Say one of your phrases or type “This is a bad choice”."
+                ? "Acknowledge it out loud or in writing."
+                : "Say or type one of your phrases."
         }
     }
 }

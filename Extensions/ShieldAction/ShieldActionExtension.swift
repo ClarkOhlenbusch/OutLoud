@@ -86,15 +86,21 @@ final class ShieldActionExtension: ShieldActionDelegate {
             }
         case .type:
             content.title = "Type to unlock"
-            content.body = "Tap to type “This is a bad choice” and continue."
+            if SharedSettings.acceptsSimilarAcknowledgements {
+                content.body = "Tap to type your acknowledgment and continue."
+            } else if SharedSettings.phrases.count == 1 {
+                content.body = "Tap to type “\(SharedSettings.phrases[0])” and continue."
+            } else {
+                content.body = "Tap to type one of your phrases and continue."
+            }
         case .either:
             content.title = "Say or type to unlock"
             if SharedSettings.acceptsSimilarAcknowledgements {
-                content.body = "Tap to say your acknowledgment or type “This is a bad choice”."
+                content.body = "Tap to say or type your acknowledgment and continue."
             } else if SharedSettings.phrases.count == 1 {
-                content.body = "Tap to say “\(SharedSettings.phrases[0])” or type “This is a bad choice”."
+                content.body = "Tap to say or type “\(SharedSettings.phrases[0])” and continue."
             } else {
-                content.body = "Tap to say one of your phrases or type “This is a bad choice”."
+                content.body = "Tap to say or type one of your phrases and continue."
             }
         }
         content.sound = .default

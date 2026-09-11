@@ -22,10 +22,10 @@ struct ChallengeView: View {
 
     @State private var activeInput: ActiveChallengeInput = .speak
     @State private var typedText = ""
+    @State private var isCheckingTypedText = false
     @State private var typedErrorMessage: String?
     @FocusState private var isTextFieldFocused: Bool
 
-    private let typingRequirement = "This is a bad choice"
     private let accent = Color(red: 0.96, green: 0.76, blue: 0.25)
 
     var body: some View {
@@ -98,7 +98,12 @@ struct ChallengeView: View {
                         if activeInput == .type && !completed {
                             VStack(spacing: 12) {
                                 HStack {
-                                    TextField("This is a bad choice", text: $typedText)
+                                    TextField(
+                                        acceptsSimilarAcknowledgements
+                                            ? "Type your acknowledgment…"
+                                            : "Type the phrase…",
+                                        text: $typedText
+                                    )
                                         .focused($isTextFieldFocused)
                                         .font(.system(size: 17, weight: .medium, design: .rounded))
                                         .foregroundStyle(.white)
@@ -143,13 +148,18 @@ struct ChallengeView: View {
                                     submitTypedText()
                                 } label: {
                                     HStack(spacing: 8) {
-                                        Image(systemName: "lock.open.fill")
-                                        Text("Unlock")
+                                        if isCheckingTypedText {
+                                            ProgressView()
+                                                .tint(.black)
+                                        } else {
+                                            Image(systemName: "lock.open.fill")
+                                        }
+                                        Text(isCheckingTypedText ? "Checking…" : "Unlock")
                                     }
                                     .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(PrimaryButtonStyle(color: accent))
-                                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCheckingTypedText)
                                 .accessibilityIdentifier("challenge-submit-button")
                             }
                             .padding(.horizontal, 10)
@@ -161,6 +171,15 @@ struct ChallengeView: View {
                                 SensoryFeedbackClient.shared.selection()
                                 usesSpecificPhrases = true
                                 startListening()
+                            }
+                            .buttonStyle(.bordered)
+                            .tint(accent)
+                        } else if !completed, acceptsSimilarAcknowledgements, activeInput == .type,
+                                  typedErrorMessage != nil {
+                            Button("Type a specific phrase instead") {
+                                SensoryFeedbackClient.shared.selection()
+                                usesSpecificPhrases = true
+                                typedErrorMessage = nil
                             }
                             .buttonStyle(.bordered)
                             .tint(accent)
@@ -372,7 +391,7 @@ struct ChallengeView: View {
 
     private func submitTypedText() {
         let trimmed = typedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+        guard !trimmed.isEmpty, !isCheckingTypedText else { return }
 
         SensoryFeedbackClient.shared.selection()
         typedErrorMessage = nil
@@ -387,15 +406,51 @@ struct ChallengeView: View {
             return
         }
 
-        if PhraseMatcher.matches(transcript: trimmed, expected: typingRequirement) {
+        // Exact / configured phrase fast path
+        if PhraseMatcher.matches(transcript: trimmed, expectedPhrases: model.phrases) {
             finishChallenge()
+            return
+        }
+
+        if acceptsSimilarAcknowledgements {
+            if ExplicitAcknowledgementMatcher.matches(trimmed) {
+                finishChallenge()
+                return
+            }
+
+            isCheckingTypedText = true
+            Task {
+                let result = await evaluateAcknowledgement(trimmed)
+                isCheckingTypedText = false
+                switch result {
+                case .accepted:
+                    finishChallenge()
+                case .rejected:
+                    SensoryFeedbackClient.shared.phraseRejected()
+                    withAnimation(.easeInOut(duration: 0.35)) {
+                        rejectionShakeAttempts += 1
+                    }
+                    typedErrorMessage = "I couldn’t match that acknowledgment. Try again or type a specific phrase."
+                case .unavailable:
+                    typedErrorMessage = "Recognition model couldn’t evaluate your words. Please try a specific phrase."
+                }
+            }
         } else {
             SensoryFeedbackClient.shared.phraseRejected()
             withAnimation(.easeInOut(duration: 0.35)) {
                 rejectionShakeAttempts += 1
             }
-            typedErrorMessage = "Type “\(typingRequirement)” to unlock."
+            typedErrorMessage = "Phrase didn’t match. Check the spelling and try again."
         }
+    }
+
+    private func evaluateAcknowledgement(_ text: String) async -> AcknowledgementMatch {
+#if DEBUG && targetEnvironment(simulator)
+        if let classifier = UITestScenario.makeClassifier() {
+            return await classifier(text)
+        }
+#endif
+        return await FlexibleAcknowledgementMatcher.evaluate(transcript: text)
     }
 
     private var acceptsSimilarAcknowledgements: Bool {
@@ -403,19 +458,22 @@ struct ChallengeView: View {
     }
 
     private var challengePrompt: String {
-        if activeInput == .type {
-            return "Type: “\(typingRequirement)”"
-        }
+        let isText = activeInput == .type
         if acceptsSimilarAcknowledgements {
-            return "In your own words, acknowledge this is a bad choice"
+            return isText
+                ? "In your own words, type an acknowledgment that this is a bad choice"
+                : "In your own words, acknowledge this is a bad choice"
         }
         if model.phrases.count == 1 {
-            return "“\(model.phrases[0])”"
+            return isText
+                ? "Type: “\(model.phrases[0])”"
+                : "“\(model.phrases[0])”"
         }
         let visiblePhrases = model.phrases.prefix(3).map { "“\($0)”" }
         let remainingCount = model.phrases.count - visiblePhrases.count
         let remainder = remainingCount > 0 ? "\n+ \(remainingCount) more" : ""
-        return "Say any one:\n" + visiblePhrases.joined(separator: "\n") + remainder
+        let verb = isText ? "Type" : "Say"
+        return "\(verb) any one:\n" + visiblePhrases.joined(separator: "\n") + remainder
     }
 
     private var isPractice: Bool {
@@ -426,6 +484,7 @@ struct ChallengeView: View {
         if completed { return isPractice ? "That’s it" : "Unlocked" }
         if model.challengeErrorMessage != nil { return "Couldn’t unlock" }
         if activeInput == .type {
+            if isCheckingTypedText { return "Checking phrase" }
             if typedErrorMessage != nil { return "Couldn’t match" }
             return "Type to unlock"
         }

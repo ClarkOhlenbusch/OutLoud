@@ -68,7 +68,7 @@ final class OnboardingStepTests: ScreenTimeFlowTestCase {
         XCTAssertEqual(model.phraseSummary, "Say out loud · Own words")
 
         model.setChallengeMode(.type)
-        XCTAssertEqual(model.phraseSummary, "Type · “This is a bad choice”")
+        XCTAssertEqual(model.phraseSummary, "Type · Own words")
 
         model.setChallengeMode(.either)
         XCTAssertEqual(model.phraseSummary, "Say or type · Own words")
@@ -77,7 +77,7 @@ final class OnboardingStepTests: ScreenTimeFlowTestCase {
         model.phrase = "I am making a bad choice"
         model.setChallengeMode(.type)
         XCTAssertEqual(model.responseStyleSummary, "1 phrase")
-        XCTAssertEqual(model.phraseSummary, "Type · “This is a bad choice”")
+        XCTAssertEqual(model.phraseSummary, "Type · 1 phrase")
 
         model.setChallengeMode(.either)
         XCTAssertEqual(model.phraseSummary, "Say or type · 1 phrase")

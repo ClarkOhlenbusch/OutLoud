@@ -94,14 +94,7 @@ final class AppModel: ObservableObject {
     }
 
     var phraseSummary: String {
-        switch challengeMode {
-        case .speak:
-            "Say out loud · \(responseStyleSummary)"
-        case .type:
-            "Type · “This is a bad choice”"
-        case .either:
-            "Say or type · \(responseStyleSummary)"
-        }
+        "\(challengeMode.title) · \(responseStyleSummary)"
     }
 
     var selectedItemCount: Int {
