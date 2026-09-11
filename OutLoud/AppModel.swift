@@ -21,6 +21,8 @@ final class AppModel: ObservableObject {
     @Published var returnMappings: [ApplicationReturnMapping]
     @Published var usageRemindersEnabled: Bool
     @Published var usageReminderInterval: UsageReminderInterval
+    @Published var hapticsEnabled: Bool
+    @Published var soundEffectsEnabled: Bool
     @Published private(set) var isRequestingScreenTimeAuthorization = false
     @Published var errorMessage: String?
     @Published private(set) var challengeErrorMessage: String?
@@ -44,6 +46,8 @@ final class AppModel: ObservableObject {
         returnMappings = SharedSettings.returnMappings
         usageRemindersEnabled = SharedSettings.usageRemindersEnabled
         usageReminderInterval = SharedSettings.usageReminderInterval
+        hapticsEnabled = SharedSettings.hapticsEnabled
+        soundEffectsEnabled = SharedSettings.soundEffectsEnabled
 
         OutLoudLog.lifecycle.info(
             "Model initialized; onboarding complete: \(self.onboardingCompleted, privacy: .public), protection enabled: \(self.protectionEnabled, privacy: .public), selected count: \(self.selectedItemCount, privacy: .public)"
@@ -292,6 +296,18 @@ final class AppModel: ObservableObject {
             withIdentifiers: [UsageReminderNotification.identifier]
         )
         OutLoudLog.screenTime.info("Usage reminders turned off")
+    }
+
+    func setHapticsEnabled(_ enabled: Bool) {
+        hapticsEnabled = enabled
+        SharedSettings.hapticsEnabled = enabled
+        OutLoudLog.lifecycle.info("Haptics changed; enabled: \(enabled, privacy: .public)")
+    }
+
+    func setSoundEffectsEnabled(_ enabled: Bool) {
+        soundEffectsEnabled = enabled
+        SharedSettings.soundEffectsEnabled = enabled
+        OutLoudLog.lifecycle.info("Sound effects changed; enabled: \(enabled, privacy: .public)")
     }
 
     func moveOnboarding(to step: OnboardingStep) {

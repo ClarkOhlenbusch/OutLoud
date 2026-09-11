@@ -44,6 +44,8 @@ enum SharedSettings {
         static let usageRemindersEnabled = "usageRemindersEnabled"
         static let usageReminderIntervalMinutes = "usageReminderIntervalMinutes"
         static let usageReminderTargets = "usageReminderTargets"
+        static let hapticsEnabled = "hapticsEnabled"
+        static let soundEffectsEnabled = "soundEffectsEnabled"
     }
 
     static var defaults: UserDefaults {
@@ -265,6 +267,16 @@ enum SharedSettings {
         set {
             defaults.set(try? JSONEncoder().encode(newValue), forKey: Key.usageReminderTargets)
         }
+    }
+
+    static var hapticsEnabled: Bool {
+        get { defaults.object(forKey: Key.hapticsEnabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.hapticsEnabled) }
+    }
+
+    static var soundEffectsEnabled: Bool {
+        get { defaults.object(forKey: Key.soundEffectsEnabled) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Key.soundEffectsEnabled) }
     }
 
     private static var pendingChallengeURL: URL? {

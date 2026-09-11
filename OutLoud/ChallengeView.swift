@@ -11,6 +11,9 @@ struct ChallengeView: View {
     @State private var returnDestination: ReturnDestination?
     @State private var isReturning = false
     @State private var returnTask: Task<Void, Never>?
+    @State private var ambientBreathing = false
+    @State private var unlockShockwave = false
+    @State private var rejectionShakeAttempts: CGFloat = 0
 
     private let accent = Color(red: 0.96, green: 0.76, blue: 0.25)
 
@@ -52,6 +55,7 @@ struct ChallengeView: View {
                                     .foregroundStyle(accent.opacity(0.82))
                                     .multilineTextAlignment(.center)
                                     .lineLimit(3)
+                                    .modifier(ShakeEffect(animatableData: rejectionShakeAttempts))
                             }
 
                             if !completed, let message = speech.statusMessage {
@@ -66,6 +70,7 @@ struct ChallengeView: View {
                         if !completed, acceptsSimilarAcknowledgements,
                            speech.lastRejectedTranscript != nil {
                             Button("Say a specific phrase instead") {
+                                SensoryFeedbackClient.shared.selection()
                                 usesSpecificPhrases = true
                                 startListening()
                             }
@@ -82,6 +87,7 @@ struct ChallengeView: View {
                                 .padding(.horizontal, 24)
 
                             Button(model.challengeErrorMessage == nil ? "Restart listening" : "Try unlocking again") {
+                                SensoryFeedbackClient.shared.buttonTap()
                                 if model.challengeErrorMessage != nil {
                                     finishChallenge()
                                 } else {
@@ -95,6 +101,7 @@ struct ChallengeView: View {
 
                         if model.isDemoMode && !completed {
                             Button("Simulate a matching phrase") {
+                                SensoryFeedbackClient.shared.buttonTap()
                                 speech.stop()
                                 finishChallenge()
                             }
@@ -103,7 +110,10 @@ struct ChallengeView: View {
                         }
 
                         if speech.isListening && !completed {
-                            Button("Done speaking") { speech.finishSpeaking() }
+                            Button("Done speaking") {
+                                SensoryFeedbackClient.shared.buttonTap()
+                                speech.finishSpeaking()
+                            }
                                 .buttonStyle(.bordered)
                                 .tint(accent)
                         }
@@ -138,6 +148,7 @@ struct ChallengeView: View {
             if completed {
                 if isPractice {
                     Button(model.onboardingCompleted ? "Done" : "Continue setup") {
+                        SensoryFeedbackClient.shared.selection()
                         if !model.onboardingCompleted {
                             model.moveOnboarding(to: .everyVisit)
                         }
@@ -158,6 +169,10 @@ struct ChallengeView: View {
         }
         .interactiveDismissDisabled()
         .onAppear {
+            SensoryFeedbackClient.shared.prepare()
+            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+                ambientBreathing = true
+            }
             guard !started else { return }
             started = true
             if model.challengeErrorMessage == nil { startListening() }
@@ -169,9 +184,24 @@ struct ChallengeView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .background && !completed { speech.pauseForBackground() }
         }
+        .onChange(of: speech.lastRejectedTranscript) { _, rejected in
+            guard rejected != nil else { return }
+            SensoryFeedbackClient.shared.phraseRejected()
+            withAnimation(.easeInOut(duration: 0.35)) {
+                rejectionShakeAttempts += 1
+            }
+        }
+        .onChange(of: speech.audioLevel) { _, newLevel in
+            if newLevel > 0.35 && speech.isListening {
+                SensoryFeedbackClient.shared.voiceActivityTick(intensity: newLevel)
+            }
+        }
     }
 
     private func startListening() {
+        SensoryFeedbackClient.shared.prepare()
+        SensoryFeedbackClient.shared.selection()
+        SensoryFeedbackClient.shared.playMicStartSound()
         speech.requestAndStart(
             expectedPhrases: model.phrases,
             acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements
@@ -213,18 +243,28 @@ struct ChallengeView: View {
     private var voiceOrb: some View {
         let color = completed ? Color.green : accent
         let level = speech.isListening ? max(speech.audioLevel, 0.025) : 0
+        let ambientPulse = (!completed && speech.isListening && level <= 0.04)
+            ? (ambientBreathing ? 1.04 : 0.97)
+            : 1.0
 
         return ZStack {
+            if completed {
+                Circle()
+                    .stroke(Color.green.opacity(unlockShockwave ? 0 : 0.65), lineWidth: unlockShockwave ? 1 : 4)
+                    .frame(width: 178, height: 178)
+                    .scaleEffect(unlockShockwave ? 1.75 : 1.0)
+            }
+
             Circle()
                 .fill(color.opacity(0.08))
                 .frame(width: 250, height: 250)
-                .scaleEffect(1 + (level * 0.7))
+                .scaleEffect((1 + (level * 0.7)) * ambientPulse)
                 .blur(radius: 8)
 
             Circle()
                 .stroke(color.opacity(0.22 + (level * 0.35)), lineWidth: 2)
                 .frame(width: 218, height: 218)
-                .scaleEffect(1 + (level * 0.42))
+                .scaleEffect((1 + (level * 0.42)) * ambientPulse)
 
             Circle()
                 .fill(
@@ -240,13 +280,14 @@ struct ChallengeView: View {
                     )
                 )
                 .frame(width: 178, height: 178)
-                .scaleEffect(1 + (level * 0.4))
+                .scaleEffect((1 + (level * 0.4)) * ambientPulse)
                 .shadow(color: color.opacity(0.28 + (level * 0.55)), radius: 24 + (level * 42))
 
             if completed {
                 Image(systemName: "checkmark")
                     .font(.system(size: 50, weight: .bold))
                     .foregroundStyle(.white)
+                    .scaleEffect(unlockShockwave ? 1.0 : 0.8)
             } else {
                 HStack(alignment: .center, spacing: 8) {
                     ForEach(Array([0.55, 0.82, 1.0, 0.82, 0.55].enumerated()), id: \.offset) { _, weight in
@@ -267,8 +308,13 @@ struct ChallengeView: View {
         let destination = model.returnDestinationForPendingChallenge()
         guard model.completeChallenge() else { return }
         returnDestination = destination
-        withAnimation(.easeOut(duration: 0.3)) {
+        SensoryFeedbackClient.shared.phraseAccepted()
+        SensoryFeedbackClient.shared.playUnlockSound()
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
             completed = true
+        }
+        withAnimation(.easeOut(duration: 0.65)) {
+            unlockShockwave = true
         }
 
         guard !isPractice, let destination else { return }
@@ -283,6 +329,7 @@ struct ChallengeView: View {
     }
 
     private func closeChallenge() {
+        SensoryFeedbackClient.shared.buttonTap()
         speech.stop()
         returnTask?.cancel()
         isReturning = false
@@ -298,6 +345,7 @@ struct ChallengeView: View {
     private var returnControl: some View {
         if let returnDestination {
             Button {
+                SensoryFeedbackClient.shared.buttonTap()
                 Task { await openReturnDestination(returnDestination) }
             } label: {
                 HStack(spacing: 9) {
@@ -369,5 +417,20 @@ struct ChallengeView: View {
 enum ReturnLinkClient {
     static var open: (URL, [UIApplication.OpenExternalURLOptionsKey: Any]) async -> Bool = {
         await UIApplication.shared.open($0, options: $1)
+    }
+}
+
+struct ShakeEffect: GeometryEffect {
+    var amount: CGFloat = 8
+    var shakesPerUnit: CGFloat = 3
+    var animatableData: CGFloat
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        ProjectionTransform(
+            CGAffineTransform(
+                translationX: amount * sin(animatableData * .pi * shakesPerUnit),
+                y: 0
+            )
+        )
     }
 }
