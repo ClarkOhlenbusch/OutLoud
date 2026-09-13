@@ -1,4 +1,3 @@
-import AudioToolbox
 import UIKit
 
 @MainActor
@@ -65,20 +64,7 @@ final class SensoryFeedbackClient {
         notificationFeedback.notificationOccurred(.warning)
     }
 
-    func playUnlockSound() {
-        guard SharedSettings.soundEffectsEnabled else { return }
-        // System Sound 1054 is a melodic, pleasant chime that automatically honors the device Silent/Mute switch.
-        AudioServicesPlaySystemSound(1054)
-    }
-
-    func playMicStartSound() {
-        guard SharedSettings.soundEffectsEnabled else { return }
-        // System Sound 1104 is a subtle acoustic click cue that honors the Silent switch.
-        AudioServicesPlaySystemSound(1104)
-    }
-
     func previewUnlockFeedback() {
         phraseAccepted()
-        playUnlockSound()
     }
 }

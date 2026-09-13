@@ -380,7 +380,6 @@ struct ChallengeView: View {
     private func startListening() {
         SensoryFeedbackClient.shared.prepare()
         SensoryFeedbackClient.shared.selection()
-        SensoryFeedbackClient.shared.playMicStartSound()
         speech.requestAndStart(
             expectedPhrases: model.phrases,
             acceptsSimilarAcknowledgements: acceptsSimilarAcknowledgements
@@ -581,7 +580,6 @@ struct ChallengeView: View {
         isTextFieldFocused = false
         returnDestination = destination
         SensoryFeedbackClient.shared.phraseAccepted()
-        SensoryFeedbackClient.shared.playUnlockSound()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
             completed = true
         }

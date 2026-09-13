@@ -35,7 +35,7 @@ struct HomeView: View {
     @State private var showingAskAgainSetup = false
     @State private var showingReturnSetup = false
     @State private var showingUsageReminderSetup = false
-    @State private var showingSensorySetup = false
+    @State private var showingHapticsSetup = false
 
     var body: some View {
         NavigationStack {
@@ -80,8 +80,8 @@ struct HomeView: View {
                 UsageReminderSetupView()
                     .environmentObject(model)
             }
-            .sheet(isPresented: $showingSensorySetup) {
-                SensoryFeedbackSetupView()
+            .sheet(isPresented: $showingHapticsSetup) {
+                HapticFeedbackSetupView()
                     .environmentObject(model)
             }
             .onChange(of: model.selection) { _, _ in model.saveSelection() }
@@ -223,11 +223,11 @@ struct HomeView: View {
             Divider().overlay(.white.opacity(0.08)).padding(.leading, 56)
 
             SettingsRow(
-                icon: "speaker.wave.2.fill",
-                title: "Sensory feedback",
-                value: sensoryFeedbackSummary
+                icon: "hand.tap.fill",
+                title: "Haptic feedback",
+                value: hapticFeedbackSummary
             ) {
-                showingSensorySetup = true
+                showingHapticsSetup = true
             }
         }
         .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -292,16 +292,8 @@ struct HomeView: View {
         model.usageRemindersEnabled ? model.usageReminderInterval.summary : "Off"
     }
 
-    private var sensoryFeedbackSummary: String {
-        if model.hapticsEnabled && model.soundEffectsEnabled {
-            return "Haptics & sound"
-        } else if model.hapticsEnabled {
-            return "Haptics only"
-        } else if model.soundEffectsEnabled {
-            return "Sound only"
-        } else {
-            return "Off"
-        }
+    private var hapticFeedbackSummary: String {
+        model.hapticsEnabled ? "On" : "Off"
     }
 
     private var errorBinding: Binding<Bool> {
@@ -1643,7 +1635,7 @@ struct PrimaryButtonStyle: ButtonStyle {
     }
 }
 
-struct SensoryFeedbackSetupView: View {
+struct HapticFeedbackSetupView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
 
@@ -1655,9 +1647,9 @@ struct SensoryFeedbackSetupView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Feel & hear the pause")
+                            Text("Feel the pause")
                                 .font(.system(size: 28, weight: .bold, design: .rounded))
-                            Text("Sensory cues provide immediate physical confirmation when you speak and unlock apps.")
+                            Text("Haptic cues provide immediate physical confirmation when you speak and unlock apps.")
                                 .font(.body)
                                 .foregroundStyle(.secondary)
                         }
@@ -1682,28 +1674,6 @@ struct SensoryFeedbackSetupView: View {
                             .tint(outLoudAccent)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 14)
-
-                            Divider().overlay(.white.opacity(0.08)).padding(.leading, 16)
-
-                            Toggle(isOn: Binding(
-                                get: { model.soundEffectsEnabled },
-                                set: {
-                                    model.setSoundEffectsEnabled($0)
-                                    if $0 { SensoryFeedbackClient.shared.playUnlockSound() }
-                                }
-                            )) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Label("Sound effects", systemImage: "speaker.wave.2.fill")
-                                        .font(.body.weight(.semibold))
-                                        .foregroundStyle(.white)
-                                    Text("Gentle acoustic chime when completed. Honors the Silent switch.")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .tint(outLoudAccent)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
                         }
                         .background(.white.opacity(0.055), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                         .overlay {
@@ -1714,25 +1684,17 @@ struct SensoryFeedbackSetupView: View {
                         Button {
                             SensoryFeedbackClient.shared.previewUnlockFeedback()
                         } label: {
-                            Label("Test unlock sensation", systemImage: "sparkles")
+                            Label("Test haptic feedback", systemImage: "sparkles")
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle(color: outLoudAccent))
                         .padding(.top, 4)
-
-                        Label(
-                            "Sound effects will never play out loud if your iPhone’s ring/silent switch or Action button is set to silent.",
-                            systemImage: "bell.slash.fill"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(20)
                     .padding(.bottom, 24)
                 }
             }
-            .navigationTitle("Sensory feedback")
+            .navigationTitle("Haptic feedback")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
@@ -1744,6 +1706,8 @@ struct SensoryFeedbackSetupView: View {
         .preferredColorScheme(.dark)
     }
 }
+
+typealias SensoryFeedbackSetupView = HapticFeedbackSetupView
 
 struct ChallengeModeSetupView: View {
     @EnvironmentObject private var model: AppModel

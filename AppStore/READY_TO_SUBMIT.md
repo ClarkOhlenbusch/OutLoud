@@ -7,21 +7,21 @@ Prepared September 9, 2026.
 - App Store Connect app: [OutLoud: Mindful App Pause](https://appstoreconnect.apple.com/apps/6804832298/distribution/ios/version/inflight)
 - Apple app ID: `6804832298`
 - Bundle ID: `com.clarkohlenbusch.outloud`
-- Approved / Closed train: `1.0.0`
-- Next build to upload: `1.0.1 (5)`
+- Approved / Closed trains: `1.0.0`, `1.0.1`
+- Next build to upload: `1.0.2 (6)`
 - Distribution entitlements: approved for the app and all three extensions
 - Screenshots: four App Store-valid 6.5-inch JPEGs in [Screenshots-6.5](Screenshots-6.5)
 
 ## 1. Create the new App Store Version
 
-Because version `1.0.0` is already approved, its pre-release train is closed (Apple Error 90062 / 90186). On App Store Connect:
+Because versions `1.0.0` and `1.0.1` are already approved or closed, their pre-release trains are closed (Apple Error 90062 / 90186). On App Store Connect:
 
 1. Under **iOS App**, click the **+ (Add Version or Platform)** button.
 2. Enter the new version number:
    ```text
-   1.0.1
+   1.0.2
    ```
-3. Click **Create**. The binary's `CFBundleShortVersionString` is `1.0.1`, matching this new version.
+3. Click **Create**. The binary's `CFBundleShortVersionString` is `1.0.2`, matching this new version.
 
 ## 2. Complete App Information
 
@@ -86,7 +86,7 @@ If Apple asks for EU Digital Services Act trader status, answer based on your ac
 
 ## 5. Upload screenshots and version metadata
 
-Return to **Distribution > iOS App > 1.0.0 Prepare for Submission**.
+Return to **Distribution > iOS App > 1.0.2 Prepare for Submission**.
 
 ### Screenshots
 
@@ -143,13 +143,13 @@ screen time,mindfulness,focus,digital wellbeing,habits,social media,app blocker,
 | --- | --- |
 | Support URL | `https://clarkohlenbusch.github.io/OutLoud/support/` |
 | Marketing URL | `https://clarkohlenbusch.github.io/OutLoud/` |
-| Version | `1.0.1` |
+| Version | `1.0.2` |
 | Copyright | `2026 Clark Ohlenbusch` |
 | Routing App Coverage File | Leave empty |
 
 ## 6. Upload and select the updated build
 
-Archive and upload `1.0.0 (4)` using the steps in [SUBMISSION.md](SUBMISSION.md). After App Store Connect finishes processing it, click **Add Build**, select `1.0.0 (4)`, and click **Done**. Do not select `1.0.0 (3)` because it predates the current iPadOS authorization fix and cumulative daily reminder thresholds.
+Archive and upload `1.0.2 (6)` using the steps in [SUBMISSION.md](SUBMISSION.md). After App Store Connect finishes processing it, click **Add Build**, select `1.0.2 (6)`, and click **Done**.
 
 If App Store Connect asks about encryption, the app does not implement proprietary or standard encryption algorithms. It only invokes ordinary system-handled URLs when returning to supported apps. Choose the answer equivalent to **None of the algorithms mentioned above / only encryption within Apple's operating system**, which requires no export documentation.
 

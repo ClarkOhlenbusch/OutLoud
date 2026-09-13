@@ -11,7 +11,7 @@ READY_TO_SUBMIT="$ROOT_DIR/AppStore/READY_TO_SUBMIT.md"
 METADATA="$ROOT_DIR/AppStore/metadata.md"
 
 # Known closed version trains on App Store Connect (cannot be reused)
-CLOSED_TRAINS=("1.0.0")
+CLOSED_TRAINS=("1.0.0" "1.0.1")
 
 get_marketing_version() {
     grep "MARKETING_VERSION:" "$PROJECT_YML" | head -n 1 | awk '{print $2}' | tr -d '"'
@@ -149,13 +149,13 @@ Commands:
   get                         Print current marketing version and build number
   verify                      Check version consistency and ensure train is not closed
   bump [patch|minor|major]    Increment marketing version and build number (default: patch)
-  set <version> <build>       Set explicit marketing version (e.g. 1.0.1) and build (e.g. 5)
+  set <version> <build>       Set explicit marketing version (e.g. 1.0.2) and build (e.g. 6)
 
 Examples:
   ./Scripts/version.sh get
   ./Scripts/version.sh verify
   ./Scripts/version.sh bump patch
-  ./Scripts/version.sh set 1.0.1 5
+  ./Scripts/version.sh set 1.0.2 6
 EOF
 }
 

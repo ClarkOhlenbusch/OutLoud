@@ -41,8 +41,8 @@ Error 90186: Invalid Pre-Release Train. The train version 'X.Y.Z' is closed for 
 
 ### Rules for Agents Preparing Releases:
 1. **Never reuse an approved or closed version train**:
-   * Train `1.0.0` is permanently closed.
-   * Next active trains are `1.0.1`, `1.1.0`, etc.
+   * Trains `1.0.0` and `1.0.1` are permanently closed.
+   * Next active trains are `1.0.2`, `1.1.0`, etc.
 2. **Always use the automated version tool**:
    * Inspect current version:
      ```bash
@@ -54,8 +54,8 @@ Error 90186: Invalid Pre-Release Train. The train version 'X.Y.Z' is closed for 
      ```
    * Bump version before creating a release archive:
      ```bash
-     ./Scripts/version.sh bump patch   # e.g., 1.0.1 (5) -> 1.0.2 (6)
-     ./Scripts/version.sh bump minor   # e.g., 1.0.1 (5) -> 1.1.0 (6)
+     ./Scripts/version.sh bump patch   # e.g., 1.0.2 (6) -> 1.0.3 (7)
+     ./Scripts/version.sh bump minor   # e.g., 1.0.2 (6) -> 1.1.0 (7)
      ```
    * The script automatically synchronizes `project.yml`, `project.pbxproj`, `AppStore/READY_TO_SUBMIT.md`, and `AppStore/metadata.md`.
 
