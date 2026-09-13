@@ -46,6 +46,9 @@ struct HomeView: View {
                     VStack(spacing: 24) {
                         wordmark
                         if model.isDemoMode { demoBanner }
+                        if model.usageRemindersEnabled && !model.isNotificationAuthorized {
+                            notificationDisabledBanner
+                        }
                         protectionStatus
                         settings
                         practiceButton
@@ -102,6 +105,39 @@ struct HomeView: View {
             }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private var notificationDisabledBanner: some View {
+        Button {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "bell.slash.fill")
+                    .foregroundStyle(.orange)
+                    .font(.title3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Notifications are turned off")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text("Allow notifications in Settings to receive usage reminders.")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.72))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(14)
+            .background(.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(.orange.opacity(0.28), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private var wordmark: some View {
@@ -289,7 +325,9 @@ struct HomeView: View {
     }
 
     private var usageReminderSummary: String {
-        model.usageRemindersEnabled ? model.usageReminderInterval.summary : "Off"
+        guard model.usageRemindersEnabled else { return "Off" }
+        guard model.isNotificationAuthorized else { return "Turned off in Settings" }
+        return model.usageReminderInterval.summary
     }
 
     private var hapticFeedbackSummary: String {
@@ -1209,15 +1247,38 @@ private struct UsageReminderSetupView: View {
                         }
 
                         if model.usageRemindersEnabled {
-                            Label(
-                                "Always on · \(model.usageReminderInterval.summary)",
-                                systemImage: "checkmark.circle.fill"
-                            )
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(outLoudAccent)
-                            .padding(.horizontal, 13)
-                            .padding(.vertical, 8)
-                            .background(outLoudAccent.opacity(0.1), in: Capsule())
+                            if !model.isNotificationAuthorized {
+                                Button {
+                                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                                        UIApplication.shared.open(url)
+                                    }
+                                } label: {
+                                    Label(
+                                        "Notifications off in Settings · Tap to fix",
+                                        systemImage: "bell.slash.fill"
+                                    )
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 8)
+                                    .background(.orange.opacity(0.12), in: Capsule())
+                                    .overlay {
+                                        Capsule()
+                                            .stroke(.orange.opacity(0.3), lineWidth: 1)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Label(
+                                    "Always on · \(model.usageReminderInterval.summary)",
+                                    systemImage: "checkmark.circle.fill"
+                                )
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(outLoudAccent)
+                                .padding(.horizontal, 13)
+                                .padding(.vertical, 8)
+                                .background(outLoudAccent.opacity(0.1), in: Capsule())
+                            }
                         }
 
                         VStack(alignment: .leading, spacing: 11) {

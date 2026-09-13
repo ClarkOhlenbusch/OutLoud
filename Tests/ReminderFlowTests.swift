@@ -102,4 +102,93 @@ final class ReminderFlowTests: ScreenTimeFlowTestCase {
         XCTAssertTrue(system.monitors.isEmpty)
         XCTAssertTrue(SharedSettings.usageReminderTargets.isEmpty)
     }
+
+    @MainActor
+    func testTurnOffAndOnPreservesTodayElapsedMinutes() async throws {
+        let model = AppModel(demoMode: false)
+        model.selection.applicationTokens = [try token(1)]
+        model.saveSelection()
+        NotificationPermissionClient.request = { true }
+        await model.selectUsageReminderInterval(.fiveMinutes)
+        XCTAssertTrue(model.usageRemindersEnabled)
+
+        let first = try XCTUnwrap(SharedSettings.usageReminderTargets.first)
+        var delivered: [Int] = []
+        try UsageReminderManager.handleThreshold(UsageReminderEvent.name(for: 5), activity: first.activityName) { minutes, _ in
+            delivered.append(minutes)
+        }
+        XCTAssertEqual(delivered, [5])
+        let advanced = try XCTUnwrap(SharedSettings.usageReminderTargets.first)
+        XCTAssertEqual(advanced.elapsedMinutes, 5)
+
+        // Turn off reminders
+        model.turnOffUsageReminders()
+        XCTAssertFalse(model.usageRemindersEnabled)
+        XCTAssertTrue(system.monitors.isEmpty)
+        // Today's target progress is preserved
+        XCTAssertEqual(SharedSettings.usageReminderTargets.first?.elapsedMinutes, 5)
+
+        // Turn back on during the same day
+        await model.selectUsageReminderInterval(.fiveMinutes)
+        XCTAssertTrue(model.usageRemindersEnabled)
+        let resumed = try XCTUnwrap(SharedSettings.usageReminderTargets.first)
+        XCTAssertEqual(resumed.elapsedMinutes, 5)
+        // Next schedule is for 10 minutes, not 5
+        let event = try XCTUnwrap(system.monitors[resumed.activityName]?.first)
+        XCTAssertEqual(event.key, UsageReminderEvent.name(for: 10))
+
+        try UsageReminderManager.handleThreshold(UsageReminderEvent.name(for: 10), activity: resumed.activityName) { minutes, _ in
+            delivered.append(minutes)
+        }
+        XCTAssertEqual(delivered, [5, 10])
+    }
+
+    func testEventAfterMidnightRolloverWithoutIntervalDidStartResetsForNewDay() throws {
+        try configure()
+        let first = try XCTUnwrap(SharedSettings.usageReminderTargets.first)
+        var delivered: [Int] = []
+        try UsageReminderManager.handleThreshold(UsageReminderEvent.name(for: 5), activity: first.activityName) { minutes, _ in
+            delivered.append(minutes)
+        }
+        XCTAssertEqual(delivered, [5])
+        let advanced = try XCTUnwrap(SharedSettings.usageReminderTargets.first { $0.id == first.id })
+        XCTAssertEqual(advanced.elapsedMinutes, 5)
+
+        // Simulate midnight passing while phone is sleeping (intervalDidStart was not called)
+        system.date = Calendar.current.date(byAdding: .day, value: 1, to: system.date)!
+
+        // Event arrives for yesterday's advanced monitor (10m)
+        try UsageReminderManager.handleThreshold(UsageReminderEvent.name(for: 10), activity: advanced.activityName) { minutes, _ in
+            delivered.append(minutes)
+        }
+
+        // Must NOT deliver yesterday's stale threshold; it resets the target for the new day
+        XCTAssertEqual(delivered, [5], "Stale threshold from yesterday must not be delivered")
+        let reset = try XCTUnwrap(SharedSettings.usageReminderTargets.first { $0.id == first.id })
+        XCTAssertEqual(reset.elapsedMinutes, 0)
+        XCTAssertEqual(system.monitors[reset.activityName]?.keys.first, UsageReminderEvent.name(for: 5))
+
+        // First event of the new day (5m) delivers properly
+        try UsageReminderManager.handleThreshold(UsageReminderEvent.name(for: 5), activity: reset.activityName) { minutes, _ in
+            delivered.append(minutes)
+        }
+        XCTAssertEqual(delivered, [5, 5])
+    }
+
+    func testEnsureMonitoringResetsTargetsOnNewDay() throws {
+        try configure()
+        let first = try XCTUnwrap(SharedSettings.usageReminderTargets.first)
+        try UsageReminderManager.handleThreshold(UsageReminderEvent.name(for: 5), activity: first.activityName) { _, _ in }
+        let advanced = try XCTUnwrap(SharedSettings.usageReminderTargets.first { $0.id == first.id })
+        XCTAssertEqual(advanced.elapsedMinutes, 5)
+
+        // New day arrives
+        system.date = Calendar.current.date(byAdding: .day, value: 1, to: system.date)!
+
+        // ensureMonitoring should detect target.dayStarted < today and refresh monitoring
+        try UsageReminderManager.ensureMonitoring()
+        let reset = try XCTUnwrap(SharedSettings.usageReminderTargets.first { $0.id == first.id })
+        XCTAssertEqual(reset.elapsedMinutes, 0)
+        XCTAssertEqual(system.monitors[reset.activityName]?.keys.first, UsageReminderEvent.name(for: 5))
+    }
 }

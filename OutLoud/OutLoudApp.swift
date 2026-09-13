@@ -60,9 +60,26 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        UNUserNotificationCenter.current().delegate = self
+        let center = UNUserNotificationCenter.current()
+        center.delegate = self
+        registerNotificationCategories(center: center)
         OutLoudLog.lifecycle.info("Application finished launching")
         return true
+    }
+
+    private func registerNotificationCategories(center: UNUserNotificationCenter) {
+        let lockAction = UNNotificationAction(
+            identifier: UsageReminderNotification.lockActionIdentifier,
+            title: "Lock App Now",
+            options: [.destructive]
+        )
+        let usageCategory = UNNotificationCategory(
+            identifier: UsageReminderNotification.categoryIdentifier,
+            actions: [lockAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([usageCategory])
     }
 
     func userNotificationCenter(
@@ -78,7 +95,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         defer { completionHandler() }
-        guard response.notification.request.identifier == "outloud.pending-challenge" else { return }
+        let identifier = response.notification.request.identifier
+
+        if identifier == UsageReminderNotification.identifier {
+            OutLoudLog.screenTime.info(
+                "User engaged usage reminder; action: \(response.actionIdentifier, privacy: .public)"
+            )
+            ShieldManager.rearmProtection()
+            AccessWindowManager.expire()
+            DispatchQueue.main.async {
+                SensoryFeedbackClient.shared.lockToggle(isOn: true)
+            }
+            return
+        }
+
+        guard identifier == "outloud.pending-challenge" else { return }
 
         OutLoudLog.challenge.info("User opened challenge notification")
         DispatchQueue.main.async {

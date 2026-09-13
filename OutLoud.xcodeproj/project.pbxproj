@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		056A1C7F836CA88107C7A564 /* NotificationRealWorldTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD00EDD65027FBD499A1EB7 /* NotificationRealWorldTests.swift */; };
 		0B32671A4FABCCB652ADCD05 /* FlexibleAcknowledgementClassifier.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = 9173EF5A670523FFE5F6E90D /* FlexibleAcknowledgementClassifier.mlmodel */; };
 		0CB1658FB0C5436664071030 /* AcknowledgementTokenizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D4990661F82B3D883FC8061 /* AcknowledgementTokenizer.swift */; };
 		0EB02A5F405392FCD49AF8CD /* SensoryFeedbackClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B7BB19E802836B1EF5D1C9C /* SensoryFeedbackClient.swift */; };
@@ -135,6 +136,7 @@
 		340B9DB781B69EA1116AA709 /* OnboardingStepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingStepTests.swift; sourceTree = "<group>"; };
 		3822F0A4E1BDA1702DD09150 /* ReminderFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderFlowTests.swift; sourceTree = "<group>"; };
 		4A524E523CED1A07BAA5DDF8 /* FlexibleAcknowledgementClassifier.evaluation.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = FlexibleAcknowledgementClassifier.evaluation.json; sourceTree = "<group>"; };
+		5CD00EDD65027FBD499A1EB7 /* NotificationRealWorldTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationRealWorldTests.swift; sourceTree = "<group>"; };
 		6C080D7220C945E98970E983 /* SpeechFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechFlowTests.swift; sourceTree = "<group>"; };
 		6D4B229FA1449C97B683DBAF /* OutLoudUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OutLoudUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6FEB9387A52B92A942B1A469 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -279,6 +281,7 @@
 			children = (
 				7670CC4BE4A5F222CB8DDFFD /* AccessFlowTests.swift */,
 				D7028B5ABC3E7BFA5402882E /* FlowTestSupport.swift */,
+				5CD00EDD65027FBD499A1EB7 /* NotificationRealWorldTests.swift */,
 				340B9DB781B69EA1116AA709 /* OnboardingStepTests.swift */,
 				DC6715F95F33E65B1DE0CEDF /* PhraseMatcherTests.swift */,
 				3822F0A4E1BDA1702DD09150 /* ReminderFlowTests.swift */,
@@ -451,17 +454,17 @@
 					4F16C577D564B10CA680E3C1 = {
 						DevelopmentTeam = 575X4F2KCC;
 						ProvisioningStyle = Automatic;
-						SystemCapabilities = "[\"com.apple.FamilyControls\": [\"enabled\": 1], \"com.apple.ApplicationGroups.iOS\": [\"enabled\": 1]]";
+						SystemCapabilities = "[\"com.apple.ApplicationGroups.iOS\": [\"enabled\": 1], \"com.apple.FamilyControls\": [\"enabled\": 1]]";
 					};
 					B41620F60444DEF23381C1F8 = {
 						DevelopmentTeam = 575X4F2KCC;
 						ProvisioningStyle = Automatic;
-						SystemCapabilities = "[\"com.apple.UserNotifications.time-sensitive\": [\"enabled\": 1], \"com.apple.ApplicationGroups.iOS\": [\"enabled\": 1], \"com.apple.FamilyControls\": [\"enabled\": 1]]";
+						SystemCapabilities = "[\"com.apple.UserNotifications.time-sensitive\": [\"enabled\": 1], \"com.apple.FamilyControls\": [\"enabled\": 1], \"com.apple.ApplicationGroups.iOS\": [\"enabled\": 1]]";
 					};
 					C70DF7B21ACB6C1F07304A79 = {
 						DevelopmentTeam = 575X4F2KCC;
 						ProvisioningStyle = Automatic;
-						SystemCapabilities = "[\"com.apple.ApplicationGroups.iOS\": [\"enabled\": 1], \"com.apple.FamilyControls\": [\"enabled\": 1]]";
+						SystemCapabilities = "[\"com.apple.FamilyControls\": [\"enabled\": 1], \"com.apple.ApplicationGroups.iOS\": [\"enabled\": 1]]";
 					};
 				};
 			};
@@ -544,6 +547,7 @@
 			files = (
 				77C4D7811B64E9704A9B6A22 /* AccessFlowTests.swift in Sources */,
 				AB89E429DD160C4CD7E878C5 /* FlowTestSupport.swift in Sources */,
+				056A1C7F836CA88107C7A564 /* NotificationRealWorldTests.swift in Sources */,
 				900372B6B130E55EBBAA7F38 /* OnboardingStepTests.swift in Sources */,
 				8ABD01E4F74357E481ABE0E2 /* PhraseMatcherTests.swift in Sources */,
 				B32C5035660E162EA7C23CF7 /* ReminderFlowTests.swift in Sources */,

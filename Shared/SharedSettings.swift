@@ -458,12 +458,14 @@ enum UsageReminderManager {
             return
         }
 
-        let activeNames = Set(ScreenTimeClient.current.activities())
-        if SharedSettings.usageReminderTargets.isEmpty {
+        let today = Calendar.current.startOfDay(for: ScreenTimeClient.current.now())
+        if SharedSettings.usageReminderTargets.isEmpty
+            || SharedSettings.usageReminderTargets.contains(where: { $0.dayStarted < today }) {
             try refreshMonitoring()
             return
         }
 
+        let activeNames = Set(ScreenTimeClient.current.activities())
         for target in SharedSettings.usageReminderTargets
         where !activeNames.contains(target.activityName) {
             try startMonitoring(target)
@@ -494,8 +496,17 @@ enum UsageReminderManager {
         guard UsageReminderActivity.isUsageReminder(activity),
               SharedSettings.usageRemindersEnabled,
               let minutes = UsageReminderEvent.elapsedMinutes(from: event),
-              let target = target(for: activity),
-              UsageReminderEvent.isExpected(minutes, after: target.elapsedMinutes,
+              let target = target(for: activity) else { return }
+
+        let today = Calendar.current.startOfDay(for: ScreenTimeClient.current.now())
+        if target.dayStarted < today {
+            // Recover from missed midnight rollover if device was asleep at 00:00.
+            // Reset for today instead of delivering yesterday's stale threshold event.
+            try resetForNewDayIfNeeded(activity: activity)
+            return
+        }
+
+        guard UsageReminderEvent.isExpected(minutes, after: target.elapsedMinutes,
                                             interval: SharedSettings.usageReminderInterval) else { return }
         notify(minutes, target.appName)
         try advance(activity: activity, elapsedMinutes: minutes)
@@ -635,11 +646,17 @@ enum UsageReminderManager {
 
 enum UsageReminderNotification {
     static let identifier = "outloud.usage-reminder"
+    static let categoryIdentifier = "OUTLOUD_USAGE_REMINDER"
+    static let lockActionIdentifier = "OUTLOUD_LOCK_NOW"
     static let body = "You asked OutLoud to interrupt you. Close it now."
 
     static func title(elapsedMinutes: Int, appName: String) -> String {
         let duration = elapsedMinutes == 1 ? "1 MINUTE" : "\(elapsedMinutes) MINUTES"
-        return "YOU HAVE SPENT \(duration) ON \(appName.uppercased())"
+        let normalized = appName.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if normalized == "THIS APP" || normalized == "YOUR PROTECTED APP" {
+            return "YOU HAVE SPENT \(duration) IN USE"
+        }
+        return "YOU HAVE SPENT \(duration) ON \(normalized)"
     }
 }
 
@@ -662,6 +679,12 @@ enum ReturnDestination: String, CaseIterable, Codable, Identifiable {
     case youTube
     case reddit
     case x
+    case facebook
+    case threads
+    case snapchat
+    case discord
+    case netflix
+    case safari
 
     var id: String { rawValue }
 
@@ -672,6 +695,12 @@ enum ReturnDestination: String, CaseIterable, Codable, Identifiable {
         case .youTube: "YouTube"
         case .reddit: "Reddit"
         case .x: "X"
+        case .facebook: "Facebook"
+        case .threads: "Threads"
+        case .snapchat: "Snapchat"
+        case .discord: "Discord"
+        case .netflix: "Netflix"
+        case .safari: "Safari"
         }
     }
 
@@ -682,6 +711,12 @@ enum ReturnDestination: String, CaseIterable, Codable, Identifiable {
         case .youTube: "play.rectangle.fill"
         case .reddit: "bubble.left.and.bubble.right.fill"
         case .x: "textformat"
+        case .facebook: "person.2.fill"
+        case .threads: "at"
+        case .snapchat: "camera.viewfinder"
+        case .discord: "bubble.left.and.exclamationmark.bubble.right.fill"
+        case .netflix: "film.fill"
+        case .safari: "safari.fill"
         }
     }
 
@@ -698,6 +733,18 @@ enum ReturnDestination: String, CaseIterable, Codable, Identifiable {
             values = ["reddit://", "https://www.reddit.com/"]
         case .x:
             values = ["twitter://", "https://x.com/"]
+        case .facebook:
+            values = ["fb://", "https://www.facebook.com/"]
+        case .threads:
+            values = ["barcelona://", "https://www.threads.net/"]
+        case .snapchat:
+            values = ["snapchat://", "https://www.snapchat.com/"]
+        case .discord:
+            values = ["discord://", "https://discord.com/"]
+        case .netflix:
+            values = ["nflx://", "https://www.netflix.com/"]
+        case .safari:
+            values = ["x-web-search://", "https://www.apple.com/safari/"]
         }
         return values.compactMap(URL.init(string:))
     }

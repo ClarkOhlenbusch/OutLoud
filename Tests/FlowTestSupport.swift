@@ -46,6 +46,7 @@ class ScreenTimeFlowTestCase: XCTestCase {
         system = FakeScreenTime()
         ScreenTimeClient.current = system.client
         NotificationPermissionClient.request = { false }
+        NotificationPermissionClient.check = { true }
     }
 
     override func tearDownWithError() throws {
@@ -53,6 +54,7 @@ class ScreenTimeFlowTestCase: XCTestCase {
         SharedSettings.testStorage = nil
         ScreenTimeClient.current = .live
         NotificationPermissionClient.request = NotificationPermissionClient.live
+        NotificationPermissionClient.check = NotificationPermissionClient.liveCheck
         NotificationPermissionClient.requiresFallback = NotificationPermissionClient.liveRequiresFallback
         try FileManager.default.removeItem(at: directory)
         system = nil

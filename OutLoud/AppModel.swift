@@ -23,6 +23,7 @@ final class AppModel: ObservableObject {
     @Published var usageRemindersEnabled: Bool
     @Published var usageReminderInterval: UsageReminderInterval
     @Published var hapticsEnabled: Bool
+    @Published var isNotificationAuthorized = true
     @Published private(set) var isRequestingScreenTimeAuthorization = false
     @Published var errorMessage: String?
     @Published private(set) var challengeErrorMessage: String?
@@ -52,6 +53,7 @@ final class AppModel: ObservableObject {
         OutLoudLog.lifecycle.info(
             "Model initialized; onboarding complete: \(self.onboardingCompleted, privacy: .public), protection enabled: \(self.protectionEnabled, privacy: .public), selected count: \(self.selectedItemCount, privacy: .public)"
         )
+        Task { await checkNotificationAuthorization() }
         if acceptsSimilarAcknowledgements {
 #if !targetEnvironment(simulator)
             Task { await FlexibleAcknowledgementMatcher.prepareModel() }
@@ -290,6 +292,7 @@ final class AppModel: ObservableObject {
     func selectUsageReminderInterval(_ interval: UsageReminderInterval) async {
         errorMessage = nil
         let allowed = await NotificationPermissionClient.request()
+        isNotificationAuthorized = allowed
         guard allowed else {
             errorMessage = "Notifications are turned off. Allow notifications for OutLoud in Settings to use usage reminders."
             return
@@ -317,7 +320,6 @@ final class AppModel: ObservableObject {
         usageRemindersEnabled = false
         SharedSettings.usageRemindersEnabled = false
         UsageReminderManager.stopMonitoring()
-        SharedSettings.usageReminderTargets = []
         UNUserNotificationCenter.current().removeDeliveredNotifications(
             withIdentifiers: [UsageReminderNotification.identifier]
         )
@@ -350,6 +352,10 @@ final class AppModel: ObservableObject {
 
     func refreshPendingChallenge() {
         authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+        Task { await checkNotificationAuthorization() }
+        if usageRemindersEnabled && !isDemoMode {
+            try? UsageReminderManager.ensureMonitoring()
+        }
         if SharedSettings.accessWindows.contains(where: { $0.expiration <= ScreenTimeClient.current.now() })
             || (SharedSettings.unlockExpiration.map { $0 <= ScreenTimeClient.current.now() } ?? false) {
             OutLoudLog.screenTime.info("Expired access window found while app became active; reapplying shields")
@@ -371,6 +377,10 @@ final class AppModel: ObservableObject {
             challengeSessionID = requestID
             pendingChallenge = .selection
             OutLoudLog.challenge.notice("Restored pending challenge through selection fallback")
+        } else {
+            UNUserNotificationCenter.current().removeDeliveredNotifications(
+                withIdentifiers: ["outloud.pending-challenge"]
+            )
         }
     }
 
@@ -421,6 +431,9 @@ final class AppModel: ObservableObject {
             SharedSettings.unlockExpiration = nil
             ShieldManager.applySavedSelection()
             SharedSettings.pendingChallenge = nil
+            UNUserNotificationCenter.current().removeDeliveredNotifications(
+                withIdentifiers: ["outloud.pending-challenge"]
+            )
             OutLoudLog.screenTime.info(
                 "Access window started; seconds: \(accessWindowDuration, privacy: .public), challenge kind: \(challenge.logName, privacy: .public)"
             )
@@ -439,6 +452,9 @@ final class AppModel: ObservableObject {
         challengeErrorMessage = nil
         OutLoudLog.challenge.debug("Challenge screen dismissed")
         pendingChallenge = nil
+        UNUserNotificationCenter.current().removeDeliveredNotifications(
+            withIdentifiers: ["outloud.pending-challenge"]
+        )
     }
 
     func cancelChallenge() {
@@ -446,6 +462,9 @@ final class AppModel: ObservableObject {
         OutLoudLog.challenge.info("Challenge cancelled")
         SharedSettings.pendingChallenge = nil
         pendingChallenge = nil
+        UNUserNotificationCenter.current().removeDeliveredNotifications(
+            withIdentifiers: ["outloud.pending-challenge"]
+        )
     }
 
     private func scheduleComponents(for date: Date, calendar: Calendar) -> DateComponents {
@@ -480,6 +499,14 @@ final class AppModel: ObservableObject {
         }
         return await NotificationPermissionClient.request()
     }
+
+    func checkNotificationAuthorization() async {
+        guard !isDemoMode else {
+            isNotificationAuthorized = true
+            return
+        }
+        isNotificationAuthorized = await NotificationPermissionClient.check()
+    }
 }
 
 enum NotificationPermissionClient {
@@ -488,6 +515,12 @@ enum NotificationPermissionClient {
             .requestAuthorization(options: [.alert, .sound, .timeSensitive])) ?? false
     }
     static var request = live
+
+    static let liveCheck: () async -> Bool = {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        return settings.authorizationStatus != .denied
+    }
+    static var check = liveCheck
 
     static let liveRequiresFallback: () -> Bool = {
 #if compiler(>=6.3)
