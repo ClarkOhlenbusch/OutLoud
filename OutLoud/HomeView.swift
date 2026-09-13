@@ -481,13 +481,8 @@ struct OnboardingView: View {
                     ? "Continue"
                     : (model.isRequestingScreenTimeAuthorization ? "Allowing access…" : "Allow access")
             ) {
-                if model.isAuthorized {
-                    move(to: .apps)
-                } else {
-                    Task {
-                        await model.requestAuthorization()
-                        if model.isAuthorized { move(to: .apps) }
-                    }
+                Task {
+                    if await model.requestAuthorization() { move(to: .apps) }
                 }
             }
             .disabled(model.isRequestingScreenTimeAuthorization)
@@ -749,14 +744,16 @@ struct OnboardingView: View {
             EmptyView()
         } action: {
             VStack(spacing: 8) {
-                primaryButton("Turn on protection") {
-                    model.finishOnboarding()
+                primaryButton(model.isFinishingOnboarding ? "Turning on…" : "Turn on protection") {
+                    Task { await model.finishOnboarding() }
                 }
+                .disabled(model.isFinishingOnboarding)
 
                 if model.usageRemindersEnabled {
                     Button("Use reminders only") {
-                        model.finishOnboarding(enableProtection: false)
+                        Task { await model.finishOnboarding(enableProtection: false) }
                     }
+                    .disabled(model.isFinishingOnboarding)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.58))
                     .frame(height: 40)
@@ -1880,4 +1877,3 @@ struct ChallengeModeSegmentedPicker: View {
         .pickerStyle(.segmented)
     }
 }
-

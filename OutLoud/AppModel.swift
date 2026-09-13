@@ -25,6 +25,7 @@ final class AppModel: ObservableObject {
     @Published var hapticsEnabled: Bool
     @Published var isNotificationAuthorized = true
     @Published private(set) var isRequestingScreenTimeAuthorization = false
+    @Published private(set) var isFinishingOnboarding = false
     @Published var errorMessage: String?
     @Published private(set) var challengeErrorMessage: String?
     @Published var demoSelectedApps: Set<String> = ["Instagram", "TikTok"]
@@ -67,6 +68,9 @@ final class AppModel: ObservableObject {
                     "Failed to restore usage reminder monitoring: \(error.localizedDescription)"
                 )
             }
+        }
+        if !protectionEnabled && onboardingCompleted {
+            ProtectionReminderManager.ensureRemindersScheduled(from: SharedSettings.protectionDisabledDate)
         }
     }
 
@@ -117,8 +121,9 @@ final class AppModel: ObservableObject {
         !selection.categoryTokens.isEmpty || !selection.webDomainTokens.isEmpty
     }
 
-    func requestAuthorization() async {
-        guard !isRequestingScreenTimeAuthorization else { return }
+    @discardableResult
+    func requestAuthorization() async -> Bool {
+        guard !isRequestingScreenTimeAuthorization else { return false }
         isRequestingScreenTimeAuthorization = true
         errorMessage = nil
         defer { isRequestingScreenTimeAuthorization = false }
@@ -126,7 +131,7 @@ final class AppModel: ObservableObject {
         OutLoudLog.onboarding.info("Requesting Screen Time authorization")
         for attempt in 0...1 {
             do {
-                if !isDemoMode {
+                if !isDemoMode && !isAuthorized {
                     try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
                     authorizationStatus = AuthorizationCenter.shared.authorizationStatus
                 }
@@ -136,19 +141,19 @@ final class AppModel: ObservableObject {
                         "Screen Time authorization returned without an approved status; status: \(self.authorizationStatus.description, privacy: .public)"
                     )
                     errorMessage = "Screen Time access didn’t finish setting up. Tap Allow access to try again."
-                    return
+                    return false
                 }
 
                 let notificationsAllowed = await requestFallbackNotificationAuthorization()
                 guard notificationsAllowed else {
                     OutLoudLog.onboarding.error("Notification authorization was denied during setup")
                     errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
-                    return
+                    return false
                 }
                 OutLoudLog.onboarding.info(
                     "Screen Time authorization finished; approved: true, notifications allowed: true"
                 )
-                return
+                return true
             } catch let familyControlsError as FamilyControlsError {
                 authorizationStatus = AuthorizationCenter.shared.authorizationStatus
                 if attempt == 0, familyControlsError.isTransientAuthorizationFailure {
@@ -162,16 +167,17 @@ final class AppModel: ObservableObject {
                     "Screen Time authorization failed: \(familyControlsError.localizedDescription, privacy: .public)"
                 )
                 errorMessage = familyControlsError.outLoudAuthorizationMessage
-                return
+                return false
             } catch {
                 authorizationStatus = AuthorizationCenter.shared.authorizationStatus
                 OutLoudLog.onboarding.error(
                     "Screen Time authorization failed: \(error.localizedDescription, privacy: .public)"
                 )
                 errorMessage = "Screen Time access couldn’t be set up. Tap Allow access to try again."
-                return
+                return false
             }
         }
+        return false
     }
 
     func saveSelection() {
@@ -266,14 +272,28 @@ final class AppModel: ObservableObject {
     func setProtection(_ enabled: Bool) {
         protectionEnabled = enabled
         OutLoudLog.screenTime.info("Protection changed; enabled: \(enabled, privacy: .public)")
-        guard !isDemoMode else { return }
+        guard !isDemoMode else {
+            if enabled {
+                ProtectionReminderManager.cancelReminders()
+            } else {
+                ProtectionReminderManager.scheduleReminders()
+            }
+            return
+        }
         SharedSettings.protectionEnabled = enabled
         AccessWindowManager.clear()
         enabled ? ShieldManager.applySavedSelection() : ShieldManager.clear()
         if enabled {
+            SharedSettings.protectionDisabledDate = nil
+            ProtectionReminderManager.cancelReminders()
             Task {
                 _ = await requestFallbackNotificationAuthorization()
             }
+        } else {
+            if SharedSettings.protectionDisabledDate == nil {
+                SharedSettings.protectionDisabledDate = ScreenTimeClient.current.now()
+            }
+            ProtectionReminderManager.scheduleReminders(from: SharedSettings.protectionDisabledDate)
         }
     }
 
@@ -338,13 +358,26 @@ final class AppModel: ObservableObject {
         OutLoudLog.onboarding.info("Moved to onboarding step: \(step.rawValue, privacy: .public)")
     }
 
-    func finishOnboarding(enableProtection: Bool = true) {
+    func finishOnboarding(enableProtection: Bool = true) async {
+        guard !isFinishingOnboarding else { return }
+        isFinishingOnboarding = true
+        errorMessage = nil
+        defer { isFinishingOnboarding = false }
+
+        // Permissions may have changed since the first setup page, including
+        // when resuming a previously unfinished onboarding session.
+        if enableProtection && !isDemoMode {
+            guard await requestFallbackNotificationAuthorization() else {
+                errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
+                return
+            }
+        }
         savePhrase()
-        setProtection(enableProtection)
         onboardingCompleted = true
         onboardingStep = .welcome
         SharedSettings.onboardingCompleted = true
         SharedSettings.onboardingStep = 0
+        setProtection(enableProtection)
         OutLoudLog.onboarding.info(
             "Onboarding completed; protection enabled: \(enableProtection, privacy: .public), usage reminders enabled: \(self.usageRemindersEnabled, privacy: .public)"
         )
@@ -355,6 +388,11 @@ final class AppModel: ObservableObject {
         Task { await checkNotificationAuthorization() }
         if usageRemindersEnabled && !isDemoMode {
             try? UsageReminderManager.ensureMonitoring()
+        }
+        if !protectionEnabled && onboardingCompleted {
+            ProtectionReminderManager.ensureRemindersScheduled(from: SharedSettings.protectionDisabledDate)
+        } else if protectionEnabled {
+            ProtectionReminderManager.cancelReminders()
         }
         if SharedSettings.accessWindows.contains(where: { $0.expiration <= ScreenTimeClient.current.now() })
             || (SharedSettings.unlockExpiration.map { $0 <= ScreenTimeClient.current.now() } ?? false) {
@@ -497,7 +535,9 @@ final class AppModel: ObservableObject {
         guard NotificationPermissionClient.requiresFallback() else {
             return true
         }
-        return await NotificationPermissionClient.request()
+        let allowed = await NotificationPermissionClient.request()
+        isNotificationAuthorized = allowed
+        return allowed
     }
 
     func checkNotificationAuthorization() async {

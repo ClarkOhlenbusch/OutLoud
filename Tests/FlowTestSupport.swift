@@ -56,6 +56,7 @@ class ScreenTimeFlowTestCase: XCTestCase {
         NotificationPermissionClient.request = NotificationPermissionClient.live
         NotificationPermissionClient.check = NotificationPermissionClient.liveCheck
         NotificationPermissionClient.requiresFallback = NotificationPermissionClient.liveRequiresFallback
+        ProtectionReminderManager.resetToLive()
         try FileManager.default.removeItem(at: directory)
         system = nil
         try super.tearDownWithError()

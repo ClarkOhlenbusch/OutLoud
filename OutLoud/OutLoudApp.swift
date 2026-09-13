@@ -52,6 +52,10 @@ private struct RootView: View {
             OutLoudLog.challenge.debug("Challenge notification received by root view")
             model.refreshPendingChallenge()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .outLoudProtectionReenabled)) { _ in
+            OutLoudLog.screenTime.info("Protection re-enabled notification received by root view")
+            model.protectionEnabled = true
+        }
     }
 }
 
@@ -79,7 +83,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             intentIdentifiers: [],
             options: []
         )
-        center.setNotificationCategories([usageCategory])
+        let enableProtectionAction = UNNotificationAction(
+            identifier: ProtectionReminderNotification.reenableActionIdentifier,
+            title: "Turn Protection On",
+            options: [.foreground]
+        )
+        let protectionCategory = UNNotificationCategory(
+            identifier: ProtectionReminderNotification.categoryIdentifier,
+            actions: [enableProtectionAction],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([usageCategory, protectionCategory])
     }
 
     func userNotificationCenter(
@@ -109,6 +124,21 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
             return
         }
 
+        if ProtectionReminderNotification.isProtectionReminder(identifier) {
+            OutLoudLog.screenTime.info(
+                "User engaged protection reminder; action: \(response.actionIdentifier, privacy: .public)"
+            )
+            SharedSettings.protectionEnabled = true
+            SharedSettings.protectionDisabledDate = nil
+            ShieldManager.applySavedSelection()
+            ProtectionReminderManager.cancelReminders()
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: .outLoudProtectionReenabled, object: nil)
+                SensoryFeedbackClient.shared.lockToggle(isOn: true)
+            }
+            return
+        }
+
         guard identifier == "outloud.pending-challenge" else { return }
 
         OutLoudLog.challenge.info("User opened challenge notification")
@@ -120,4 +150,5 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
 
 extension Notification.Name {
     static let outLoudChallengeRequested = Notification.Name("outloud.challenge-requested")
+    static let outLoudProtectionReenabled = Notification.Name("outloud.protection-reenabled")
 }

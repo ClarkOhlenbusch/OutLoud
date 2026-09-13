@@ -46,6 +46,7 @@ enum SharedSettings {
         static let usageReminderIntervalMinutes = "usageReminderIntervalMinutes"
         static let usageReminderTargets = "usageReminderTargets"
         static let hapticsEnabled = "hapticsEnabled"
+        static let protectionDisabledDate = "protectionDisabledDate"
     }
 
     static var defaults: UserDefaults {
@@ -112,6 +113,22 @@ enum SharedSettings {
     static var protectionEnabled: Bool {
         get { defaults.object(forKey: Key.protectionEnabled) as? Bool ?? false }
         set { defaults.set(newValue, forKey: Key.protectionEnabled) }
+    }
+
+    static var protectionDisabledDate: Date? {
+        get {
+            guard let timeInterval = defaults.object(forKey: Key.protectionDisabledDate) as? Double else {
+                return nil
+            }
+            return Date(timeIntervalSince1970: timeInterval)
+        }
+        set {
+            if let newValue {
+                defaults.set(newValue.timeIntervalSince1970, forKey: Key.protectionDisabledDate)
+            } else {
+                defaults.removeObject(forKey: Key.protectionDisabledDate)
+            }
+        }
     }
 
     static var askAgainMode: AskAgainMode {
@@ -657,6 +674,65 @@ enum UsageReminderNotification {
             return "YOU HAVE SPENT \(duration) IN USE"
         }
         return "YOU HAVE SPENT \(duration) ON \(normalized)"
+    }
+}
+
+enum ProtectionReminderNotification {
+    static let identifierPrefix = "outloud.protection-reminder"
+    static let categoryIdentifier = "OUTLOUD_PROTECTION_REMINDER"
+    static let reenableActionIdentifier = "OUTLOUD_ENABLE_PROTECTION"
+
+    static let standardOffsets: [TimeInterval] = [
+        3600,       // 1 hour
+        3 * 3600,   // 3 hours
+        6 * 3600,   // 6 hours
+        12 * 3600,  // 12 hours
+        18 * 3600,  // 18 hours
+        24 * 3600,  // 24 hours
+        30 * 3600,  // 30 hours
+        36 * 3600,  // 36 hours
+        42 * 3600,  // 42 hours
+        48 * 3600,  // 48 hours
+        54 * 3600,  // 54 hours
+        60 * 3600,  // 60 hours
+        66 * 3600,  // 66 hours
+        72 * 3600   // 72 hours
+    ]
+
+    static func identifier(for offset: TimeInterval) -> String {
+        "\(identifierPrefix).\(Int(offset))"
+    }
+
+    static var allIdentifiers: [String] {
+        standardOffsets.map { identifier(for: $0) }
+    }
+
+    static func isProtectionReminder(_ identifier: String) -> Bool {
+        identifier.hasPrefix(identifierPrefix)
+    }
+
+    static func title(for offset: TimeInterval) -> String {
+        let hours = Int(round(offset / 3600))
+        if hours <= 1 {
+            return "Protection is off"
+        } else if hours == 3 {
+            return "Still scrolling unprotected?"
+        } else {
+            return "Protection is still off"
+        }
+    }
+
+    static func body(for offset: TimeInterval) -> String {
+        let hours = Int(round(offset / 3600))
+        if hours <= 1 {
+            return "Protection is off. Turn it back on and stop doomscrolling like a loser."
+        } else if hours == 3 {
+            return "It’s been 3 hours without protection. Turn it back on and stop doomscrolling like a loser."
+        } else if hours == 24 {
+            return "A full day without protection. Turn it back on and stop doomscrolling like a loser."
+        } else {
+            return "It’s been \(hours) hours without protection. Turn it back on and stop doomscrolling like a loser."
+        }
     }
 }
 

@@ -15,6 +15,91 @@ import XCTest
 /// fitting to specific implementation details.
 final class NotificationRealWorldTests: ScreenTimeFlowTestCase {
 
+    @MainActor
+    func testOnboardingPermissionStepRequiresNotificationsEvenWithScreenTimeAlreadyApproved() async {
+        NotificationPermissionClient.requiresFallback = { true }
+        NotificationPermissionClient.request = { false }
+        let model = AppModel(demoMode: false)
+        model.authorizationStatus = .approved
+
+        let denied = await model.requestAuthorization()
+        XCTAssertFalse(denied, "The UI must not advance based only on Screen Time approval")
+        XCTAssertTrue(model.isAuthorized)
+        XCTAssertNotNil(model.errorMessage)
+
+        NotificationPermissionClient.request = { true }
+        let granted = await model.requestAuthorization()
+        XCTAssertTrue(granted, "Retry must recheck notifications after they are enabled in Settings")
+        XCTAssertNil(model.errorMessage)
+    }
+
+    @MainActor
+    func testFinishingOnboardingRechecksNotificationsBeforeSavingCompletionOrApplyingShields() async throws {
+        NotificationPermissionClient.requiresFallback = { true }
+        NotificationPermissionClient.request = { false }
+        let model = AppModel(demoMode: false)
+        let app = try token(1)
+        model.selection.applicationTokens = [app]
+        model.saveSelection()
+        model.moveOnboarding(to: .ready)
+
+        await model.finishOnboarding()
+
+        XCTAssertFalse(model.onboardingCompleted)
+        XCTAssertFalse(SharedSettings.onboardingCompleted)
+        XCTAssertEqual(model.onboardingStep, .ready)
+        XCTAssertFalse(model.protectionEnabled)
+        XCTAssertFalse(SharedSettings.protectionEnabled)
+        XCTAssertTrue(system.shields.applicationTokens.isEmpty)
+        XCTAssertNotNil(model.errorMessage)
+        XCTAssertFalse(model.isFinishingOnboarding)
+
+        NotificationPermissionClient.request = { true }
+        await model.finishOnboarding()
+
+        XCTAssertTrue(model.onboardingCompleted)
+        XCTAssertTrue(SharedSettings.onboardingCompleted)
+        XCTAssertTrue(model.protectionEnabled)
+        XCTAssertEqual(system.shields.applicationTokens, [app])
+        XCTAssertNil(model.errorMessage)
+    }
+
+    @MainActor
+    func testDirectShieldOpeningDoesNotRequireNotificationsToFinishOnboarding() async throws {
+        NotificationPermissionClient.requiresFallback = { false }
+        var requests = 0
+        NotificationPermissionClient.request = { requests += 1; return false }
+        let model = AppModel(demoMode: false)
+        let app = try token(1)
+        model.selection.applicationTokens = [app]
+        model.saveSelection()
+
+        await model.finishOnboarding()
+
+        XCTAssertTrue(model.onboardingCompleted)
+        XCTAssertTrue(model.protectionEnabled)
+        XCTAssertEqual(system.shields.applicationTokens, [app])
+        XCTAssertEqual(requests, 0)
+        XCTAssertNil(model.errorMessage)
+    }
+
+    @MainActor
+    func testRemindersOnlySetupDoesNotRequireTheShieldNotificationHandoff() async {
+        NotificationPermissionClient.requiresFallback = { true }
+        var requests = 0
+        NotificationPermissionClient.request = { requests += 1; return false }
+        ProtectionReminderManager.addRequest = { _ in }
+        let model = AppModel(demoMode: false)
+
+        await model.finishOnboarding(enableProtection: false)
+
+        XCTAssertTrue(model.onboardingCompleted)
+        XCTAssertFalse(model.protectionEnabled)
+        XCTAssertTrue(system.shields.applicationTokens.isEmpty)
+        XCTAssertEqual(requests, 0)
+        XCTAssertNil(model.errorMessage)
+    }
+
     // MARK: - 1. Notification Permission Lifecycle & Protection Gating
 
     /// Real-world scenario: A user denies notification permission.
