@@ -53,6 +53,10 @@ struct ChallengeView: View {
                         }
 
                         voiceOrb
+                            .contentShape(Circle())
+                            .onTapGesture {
+                                handleOrbTap()
+                            }
 
                         VStack(spacing: activeInput == .type ? 6 : 14) {
                             Text(completionTitle)
@@ -184,38 +188,12 @@ struct ChallengeView: View {
                             .buttonStyle(.bordered)
                             .tint(accent)
                         }
+                        
+                        if activeInput == .speak {
+                            retryInstructionPill
+                        }
 
-                        if activeInput == .speak, let error = model.challengeErrorMessage ?? speech.errorMessage, !completed {
-                            Text(error)
-                                .font(.callout)
-                                .foregroundStyle(.red)
-                                .multilineTextAlignment(.center)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.horizontal, 24)
-
-                            if error.localizedCaseInsensitiveContains("Settings") {
-                                Button("Open Settings") {
-                                    SensoryFeedbackClient.shared.buttonTap()
-                                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                                        UIApplication.shared.open(url)
-                                    }
-                                }
-                                .buttonStyle(.bordered)
-                                .tint(accent)
-                            }
-
-                            Button(model.challengeErrorMessage == nil ? "Restart listening" : "Try unlocking again") {
-                                SensoryFeedbackClient.shared.buttonTap()
-                                if model.challengeErrorMessage != nil {
-                                    finishChallenge()
-                                } else {
-                                    startListening()
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .tint(accent)
-                            .foregroundStyle(.black)
-                        } else if activeInput == .type, let error = model.challengeErrorMessage, !completed {
+                        if activeInput == .type, let error = model.challengeErrorMessage, !completed {
                             Text(error)
                                 .font(.callout)
                                 .foregroundStyle(.red)
@@ -238,15 +216,6 @@ struct ChallengeView: View {
                                 speech.stop()
                                 isTextFieldFocused = false
                                 finishChallenge()
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(accent)
-                        }
-
-                        if activeInput == .speak && speech.isListening && !completed {
-                            Button("Done speaking") {
-                                SensoryFeedbackClient.shared.buttonTap()
-                                speech.finishSpeaking()
                             }
                             .buttonStyle(.bordered)
                             .tint(accent)
@@ -281,9 +250,14 @@ struct ChallengeView: View {
                 .scrollDismissesKeyboard(.interactively)
             }
 
-            VStack {
-                HStack {
-                    Spacer()
+            VStack(spacing: 0) {
+                HStack(alignment: .top, spacing: 12) {
+                    if let error = speakingErrorMessage {
+                        topErrorBanner(error)
+                    } else {
+                        Spacer()
+                    }
+
                     Button(action: closeChallenge) {
                         Image(systemName: "xmark")
                             .font(.system(size: 15, weight: .bold))
@@ -293,9 +267,11 @@ struct ChallengeView: View {
                     }
                     .accessibilityLabel(completed ? "Close" : "Cancel pause")
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+
                 Spacer()
             }
-            .padding(20)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if completed {
@@ -571,7 +547,111 @@ struct ChallengeView: View {
         .animation(.linear(duration: 0.08), value: speech.audioLevel)
         .animation(.easeOut(duration: 0.25), value: completed)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(completed ? "Phrase accepted" : (activeInput == .type ? "Type acknowledgment" : "Voice level"))
+        .accessibilityAddTraits(activeInput == .speak ? [.isButton] : [])
+        .accessibilityIdentifier(speech.isListening ? "Done speaking" : "voice-orb")
+        .accessibilityLabel(completed ? "Phrase accepted" : (activeInput == .type ? "Type acknowledgment" : (speech.isListening ? "Done speaking" : "Voice level")))
+    }
+
+    private var speakingErrorMessage: String? {
+        guard activeInput == .speak, !completed else { return nil }
+        return model.challengeErrorMessage ?? speech.errorMessage
+    }
+
+    private var canTapToRetry: Bool {
+        if model.challengeErrorMessage != nil && !completed {
+            return true
+        }
+        return activeInput == .speak && !completed && !speech.isListening && !speech.isFinalizing && started
+    }
+
+    private var retryButtonIdentifier: String {
+        model.challengeErrorMessage != nil ? "Try unlocking again" : "Restart listening"
+    }
+
+    private var retryInstructionTitle: String {
+        if model.challengeErrorMessage != nil {
+            return "Try unlocking again"
+        }
+        if speech.errorMessage != nil || speech.lastRejectedTranscript != nil {
+            return "Tap orb to try again"
+        }
+        return "Tap orb to speak"
+    }
+
+    private func handleOrbTap() {
+        guard activeInput == .speak, !completed else { return }
+        SensoryFeedbackClient.shared.buttonTap()
+        if speech.isListening {
+            speech.finishSpeaking()
+        } else {
+            if model.challengeErrorMessage != nil {
+                finishChallenge()
+            } else {
+                startListening()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var retryInstructionPill: some View {
+        if canTapToRetry {
+            Button {
+                handleOrbTap()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption.bold())
+                    Text(retryInstructionTitle)
+                        .font(.subheadline.weight(.semibold))
+                }
+                .foregroundStyle(.black)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier(retryButtonIdentifier)
+            .accessibilityLabel(retryButtonIdentifier)
+            .transition(.opacity.combined(with: .scale(scale: 0.95)))
+        }
+    }
+
+    private func topErrorBanner(_ message: String) -> some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .foregroundStyle(.orange)
+                .font(.system(size: 16, weight: .bold))
+
+            Text(message)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.white)
+                .lineLimit(3)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 4)
+
+            if message.localizedCaseInsensitiveContains("Settings") {
+                Button("Settings") {
+                    SensoryFeedbackClient.shared.buttonTap()
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.black)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(accent, in: Capsule())
+            }
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.16), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+        }
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .animation(.easeInOut(duration: 0.25), value: message)
     }
 
     private func finishChallenge() {

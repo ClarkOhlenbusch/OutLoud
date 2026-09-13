@@ -34,6 +34,9 @@ final class ShieldActionExtension: ShieldActionDelegate {
     ) {
         switch action {
         case .primaryButtonPressed:
+            OutLoudLog.challenge.info("Shield pause declined; closing shielded app")
+            completionHandler(.close)
+        case .secondaryButtonPressed:
             OutLoudLog.challenge.info(
                 "Shield pause started; challenge kind: \(challenge.logName, privacy: .public)"
             )
@@ -48,9 +51,6 @@ final class ShieldActionExtension: ShieldActionDelegate {
 #else
             notifyAndClose(completionHandler: completionHandler)
 #endif
-        case .secondaryButtonPressed:
-            OutLoudLog.challenge.info("Shield pause declined")
-            completionHandler(.close)
 #if compiler(>=6.3)
         case .firstSecondarySubmenuItemPressed,
              .secondSecondarySubmenuItemPressed,

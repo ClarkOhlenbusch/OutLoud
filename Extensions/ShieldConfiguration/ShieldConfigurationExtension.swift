@@ -53,9 +53,9 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
             icon: makeVoiceMark(color: gold),
             title: .init(text: nextMessage(), color: .white),
             subtitle: nil,
-            primaryButtonLabel: .init(text: "UNLOCK", color: .black),
+            primaryButtonLabel: .init(text: "CLOSE APP", color: .black),
             primaryButtonBackgroundColor: gold,
-            secondaryButtonLabel: nil
+            secondaryButtonLabel: .init(text: "UNLOCK APP", color: .white.withAlphaComponent(0.72))
         )
     }
 
