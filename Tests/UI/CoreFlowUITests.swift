@@ -33,7 +33,7 @@ final class CoreFlowUITests: XCTestCase {
         app.buttons["Practice"].tap()
         XCTAssertTrue(app.buttons["Continue setup"].waitForExistence(timeout: 5))
         app.buttons["Continue setup"].tap()
-        app.buttons["Set up later"].tap()
+        app.buttons["Continue"].tap()
         app.buttons["Not now"].tap()
         app.buttons["Turn on protection"].tap()
         XCTAssertTrue(app.staticTexts["Protection is on"].waitForExistence(timeout: 5))
@@ -63,6 +63,64 @@ final class CoreFlowUITests: XCTestCase {
     func testAutomaticReturnOffersCorrectApp() {
         launch("automatic-return")
         XCTAssertTrue(app.buttons["Return to YouTube"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Automatic return didn’t open the app. Switch back manually."].exists)
+        XCTAssertTrue(app.staticTexts["Open the app from the App Switcher or Home Screen."].exists)
+    }
+
+    func testTypedPhraseUnlocksThroughTheRealInputControls() {
+        launch("typed-unlock")
+        let field = app.textFields["challenge-text-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("I am making a bad choice")
+        app.buttons["challenge-submit-button"].tap()
+        XCTAssertTrue(app.staticTexts["Unlocked"].waitForExistence(timeout: 5))
+    }
+
+    func testSwitchingToSpeechCancelsPendingTypedAcceptance() {
+        launch("typed-delayed")
+        app.buttons["challenge-switch-input-button"].tap()
+        let field = app.textFields["challenge-text-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("A deliberately delayed acknowledgment")
+        app.buttons["challenge-submit-button"].tap()
+        app.buttons["challenge-switch-input-button"].tap()
+        XCTAssertFalse(app.staticTexts["Unlocked"].waitForExistence(timeout: 9))
+        XCTAssertTrue(app.staticTexts["Listening"].exists)
+    }
+
+    func testBackgroundingCancelsPendingTypedAcceptance() {
+        launch("typed-delayed")
+        app.buttons["challenge-switch-input-button"].tap()
+        let field = app.textFields["challenge-text-field"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText("A deliberately delayed acknowledgment")
+        app.buttons["challenge-submit-button"].tap()
+        XCUIDevice.shared.press(.home)
+        app.activate()
+        XCTAssertFalse(app.staticTexts["Unlocked"].waitForExistence(timeout: 9))
+        XCTAssertTrue(app.buttons["challenge-submit-button"].isEnabled)
+    }
+
+    func testUnresolvedHandoffShowsRecoveryInsteadOfAnUnlockChallenge() {
+        launch("unresolved-challenge")
+        XCTAssertTrue(app.staticTexts["App selection needed"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Done speaking"].exists)
+        app.buttons["Back to OutLoud"].tap()
+        XCTAssertTrue(app.staticTexts["Protection is on"].waitForExistence(timeout: 5))
+    }
+
+    func testViewingEveryVisitInstructionsDoesNotEnableTheMode() {
+        launch("mappings")
+        app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Ask again")).firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Ask again"].waitForExistence(timeout: 5))
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Every visit")).firstMatch.tap()
+        XCTAssertTrue(app.buttons["confirm-every-visit"].waitForExistence(timeout: 5))
+        app.navigationBars["Every visit"].buttons["Done"].tap()
+        app.navigationBars["Ask again"].buttons["Done"].tap()
+        XCTAssertTrue(app.staticTexts["After 15 min"].exists)
     }
 
     func testFailedUnlockRetriesWithoutRestartingSpeech() {

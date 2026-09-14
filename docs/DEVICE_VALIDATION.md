@@ -44,12 +44,35 @@ existing OutLoud configuration. No transcripts or app tokens need to be logged.
 
 ## Setup and returning to apps
 
+- Start a fresh install and verify timer mode is selected. Open Every visit setup,
+  then dismiss it without confirming; timer mode must remain selected. Create the
+  automation and tap I created the automation; only then should Every visit be active.
+  Update the app selection and confirm the app returns to timer mode with instructions
+  to update the automation. Upgrade an older unconfirmed Every visit install and
+  verify the timer fallback and setup notice.
+- Attempt to save an entire category. The previous individual selection must remain
+  protected, with guidance to expand categories and choose individual items. Upgrade
+  an old category selection and verify its shield stays in place until the selection
+  is corrected; a challenge must never release the whole category or selection.
+- Revoke Screen Time access while protection is on. On return, OutLoud must show
+  protection off and offer Restore Screen Time access. Restore it, choose fresh apps,
+  and enable protection; the previous tokens and auto-return mappings must not be reused.
 - Complete setup with all mappings left on Return manually. Both apps should
   be protected. Unlock each and use the displayed gesture to switch back.
 - Map a supported app, leave the other manual, and verify each return path.
   Remove the mapping and confirm manual return persists after relaunch.
 - For an automatic destination that cannot open, confirm the user can still
-  switch back manually; record any missing or confusing fallback instructions.
+  switch back manually using the displayed App Switcher / Home Screen guidance.
+
+## Typed challenge lifecycle
+
+- In Type and Say or type modes, submit a specific phrase and an Own words acknowledgment.
+  Verify each successful challenge grants exactly one access window.
+- While Checking is visible, cancel, background, switch to speech, or edit the text.
+  A late result must not unlock. Cancel a check and immediately start another app's
+  challenge; the first result must not accept the second challenge.
+- A check taking over 15 seconds must stop with retry guidance. Retry with a specific
+  phrase and verify that the original check cannot later change the result.
 
 ## Speech, cancellation and recovery
 
@@ -102,6 +125,11 @@ existing OutLoud configuration. No transcripts or app tokens need to be logged.
 
 ## Reminders
 
+- During a timed access window, choose Lock Selected Apps Now. All selected items
+  must lock immediately and their access windows must clear. Repeat with Every visit
+  and with protection off. Permission denial must not falsely report protection on.
+  Tapping the body of either a usage reminder or protection reminder must only open
+  OutLoud; it must not change protection.
 - With protection off, test 1-, 5- and 10-minute cadences through at least two
   notifications each. Totals must match the cadence. Switch between A and B:
   their daily foreground-use totals must advance independently.

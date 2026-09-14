@@ -133,12 +133,24 @@ enum SharedSettings {
 
     static var askAgainMode: AskAgainMode {
         get {
-            guard let rawValue = defaults.string(forKey: Key.askAgainMode) else {
-                return .everyVisit
-            }
-            return AskAgainMode(rawValue: rawValue) ?? .everyVisit
+            guard let rawValue = defaults.string(forKey: Key.askAgainMode),
+                  let mode = AskAgainMode(rawValue: rawValue) else { return .afterTime }
+            return mode == .everyVisit && !everyVisitAutomationConfirmed ? .afterTime : mode
         }
         set { defaults.set(newValue.rawValue, forKey: Key.askAgainMode) }
+    }
+
+    static var needsEveryVisitSetup: Bool {
+        let storedMode = defaults.string(forKey: Key.askAgainMode)
+        // Older installs defaulted to Every visit without writing a preference.
+        let legacyEveryVisit = storedMode == AskAgainMode.everyVisit.rawValue
+            || (storedMode == nil && onboardingCompleted)
+        return legacyEveryVisit && !everyVisitAutomationConfirmed
+    }
+
+    static var everyVisitAutomationConfirmed: Bool {
+        get { defaults.bool(forKey: "everyVisitAutomationConfirmed") }
+        set { defaults.set(newValue, forKey: "everyVisitAutomationConfirmed") }
     }
 
     static var onboardingCompleted: Bool {
@@ -832,6 +844,13 @@ struct ApplicationReturnMapping: Codable, Equatable {
 }
 
 extension PendingChallenge {
+    var isIndividual: Bool {
+        switch self {
+        case .application, .webDomain: true
+        case .category, .selection, .practice: false
+        }
+    }
+
     var logName: String {
         switch self {
         case .application: "application"

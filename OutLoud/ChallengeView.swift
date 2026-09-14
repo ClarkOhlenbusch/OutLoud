@@ -10,11 +10,14 @@ struct ChallengeView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var speech = SpeechChallengeController()
+    @StateObject private var typed = TypedChallengeController()
     @State private var completed = false
     @State private var started = false
     @State private var usesSpecificPhrases = false
     @State private var returnDestination: ReturnDestination?
     @State private var isReturning = false
+    @State private var returnFailed = false
+    @State private var viewSessionID = UUID()
     @State private var returnTask: Task<Void, Never>?
     @State private var ambientBreathing = false
     @State private var unlockShockwave = false
@@ -22,8 +25,6 @@ struct ChallengeView: View {
 
     @State private var activeInput: ActiveChallengeInput = .speak
     @State private var typedText = ""
-    @State private var isCheckingTypedText = false
-    @State private var typedErrorMessage: String?
     @FocusState private var isTextFieldFocused: Bool
 
     private let accent = Color(red: 0.96, green: 0.76, blue: 0.25)
@@ -132,13 +133,13 @@ struct ChallengeView: View {
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 16, style: .continuous)
                                         .stroke(
-                                            typedErrorMessage != nil ? Color.red.opacity(0.7) : (isTextFieldFocused ? accent.opacity(0.7) : .white.opacity(0.12)),
+                                            typed.errorMessage != nil ? Color.red.opacity(0.7) : (isTextFieldFocused ? accent.opacity(0.7) : .white.opacity(0.12)),
                                             lineWidth: 1.5
                                         )
                                 }
                                 .modifier(ShakeEffect(animatableData: rejectionShakeAttempts))
 
-                                if let error = typedErrorMessage {
+                                if let error = typed.errorMessage {
                                     Text(error)
                                         .font(.callout)
                                         .foregroundStyle(.red)
@@ -152,18 +153,18 @@ struct ChallengeView: View {
                                     submitTypedText()
                                 } label: {
                                     HStack(spacing: 8) {
-                                        if isCheckingTypedText {
+                                        if typed.isChecking {
                                             ProgressView()
                                                 .tint(.black)
                                         } else {
                                             Image(systemName: "lock.open.fill")
                                         }
-                                        Text(isCheckingTypedText ? "Checking…" : "Unlock")
+                                        Text(typed.isChecking ? "Checking…" : "Unlock")
                                     }
                                     .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(PrimaryButtonStyle(color: accent))
-                                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isCheckingTypedText)
+                                .disabled(typedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || typed.isChecking)
                                 .accessibilityIdentifier("challenge-submit-button")
                             }
                             .padding(.horizontal, 10)
@@ -179,11 +180,11 @@ struct ChallengeView: View {
                             .buttonStyle(.bordered)
                             .tint(accent)
                         } else if !completed, acceptsSimilarAcknowledgements, activeInput == .type,
-                                  typedErrorMessage != nil {
+                                  typed.errorMessage != nil {
                             Button("Type a specific phrase instead") {
                                 SensoryFeedbackClient.shared.selection()
                                 usesSpecificPhrases = true
-                                typedErrorMessage = nil
+                                typed.cancel()
                             }
                             .buttonStyle(.bordered)
                             .tint(accent)
@@ -304,6 +305,7 @@ struct ChallengeView: View {
             }
             guard !started else { return }
             started = true
+            viewSessionID = model.challengeSessionID
             activeInput = (model.challengeMode == .type) ? .type : .speak
             if activeInput == .speak {
                 if model.challengeErrorMessage == nil { startListening() }
@@ -314,12 +316,18 @@ struct ChallengeView: View {
             }
         }
         .onDisappear {
+            typed.cancel()
             speech.stop()
             isTextFieldFocused = false
             returnTask?.cancel()
         }
+        .onChange(of: typedText) { _, _ in typed.cancel() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background && !completed && activeInput == .speak { speech.pauseForBackground() }
+            if phase == .background {
+                typed.cancel()
+                returnTask?.cancel()
+                if !completed && activeInput == .speak { speech.pauseForBackground() }
+            }
         }
         .onChange(of: speech.lastRejectedTranscript) { _, rejected in
             guard rejected != nil else { return }
@@ -337,10 +345,11 @@ struct ChallengeView: View {
 
     private func switchInputMode(to mode: ActiveChallengeInput) {
         guard activeInput != mode, !completed else { return }
+        typed.cancel()
         SensoryFeedbackClient.shared.selection()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             activeInput = mode
-            typedErrorMessage = nil
+            typed.cancel()
         }
         if mode == .type {
             speech.stop()
@@ -365,67 +374,18 @@ struct ChallengeView: View {
     }
 
     private func submitTypedText() {
-        let trimmed = typedText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isCheckingTypedText else { return }
-
+        guard !completed, UIApplication.shared.applicationState == .active else { return }
         SensoryFeedbackClient.shared.selection()
-        typedErrorMessage = nil
-
-        // Interrogative Rejection: questions can never unlock
-        if trimmed.contains("?") || trimmed.contains("？") {
-            SensoryFeedbackClient.shared.phraseRejected()
-            withAnimation(.easeInOut(duration: 0.35)) {
-                rejectionShakeAttempts += 1
-            }
-            typedErrorMessage = "Questions are not acknowledgments. State it as a fact."
-            return
-        }
-
-        // Exact / configured phrase fast path
-        if PhraseMatcher.matches(transcript: trimmed, expectedPhrases: model.phrases) {
+        typed.submit(typedText, phrases: model.phrases,
+                     acceptsSimilar: acceptsSimilarAcknowledgements) {
+            guard activeInput == .type, UIApplication.shared.applicationState == .active else { return }
             finishChallenge()
-            return
-        }
-
-        if acceptsSimilarAcknowledgements {
-            if ExplicitAcknowledgementMatcher.matches(trimmed) {
-                finishChallenge()
-                return
-            }
-
-            isCheckingTypedText = true
-            Task {
-                let result = await evaluateAcknowledgement(trimmed)
-                isCheckingTypedText = false
-                switch result {
-                case .accepted:
-                    finishChallenge()
-                case .rejected:
-                    SensoryFeedbackClient.shared.phraseRejected()
-                    withAnimation(.easeInOut(duration: 0.35)) {
-                        rejectionShakeAttempts += 1
-                    }
-                    typedErrorMessage = "I couldn’t match that acknowledgment. Try again or type a specific phrase."
-                case .unavailable:
-                    typedErrorMessage = "Recognition model couldn’t evaluate your words. Please try a specific phrase."
-                }
-            }
-        } else {
+        } onReject: {
             SensoryFeedbackClient.shared.phraseRejected()
             withAnimation(.easeInOut(duration: 0.35)) {
                 rejectionShakeAttempts += 1
             }
-            typedErrorMessage = "Phrase didn’t match. Check the spelling and try again."
         }
-    }
-
-    private func evaluateAcknowledgement(_ text: String) async -> AcknowledgementMatch {
-#if DEBUG && targetEnvironment(simulator)
-        if let classifier = UITestScenario.makeClassifier() {
-            return await classifier(text)
-        }
-#endif
-        return await FlexibleAcknowledgementMatcher.evaluate(transcript: text)
     }
 
     private var acceptsSimilarAcknowledgements: Bool {
@@ -459,8 +419,8 @@ struct ChallengeView: View {
         if completed { return isPractice ? "That’s it" : "Unlocked" }
         if model.challengeErrorMessage != nil { return "Couldn’t unlock" }
         if activeInput == .type {
-            if isCheckingTypedText { return "Checking phrase" }
-            if typedErrorMessage != nil { return "Couldn’t match" }
+            if typed.isChecking { return "Checking phrase" }
+            if typed.errorMessage != nil { return "Couldn’t match" }
             return "Type to unlock"
         }
         if speech.errorMessage != nil { return speech.errorTitle }
@@ -655,8 +615,11 @@ struct ChallengeView: View {
     }
 
     private func finishChallenge() {
+        guard !completed, UIApplication.shared.applicationState == .active else { return }
         let destination = model.returnDestinationForPendingChallenge()
-        guard model.completeChallenge() else { return }
+        guard model.completeChallenge(expectedSessionID: viewSessionID) else { return }
+        typed.cancel()
+        speech.stop()
         isTextFieldFocused = false
         returnDestination = destination
         SensoryFeedbackClient.shared.phraseAccepted()
@@ -680,6 +643,7 @@ struct ChallengeView: View {
 
     private func closeChallenge() {
         SensoryFeedbackClient.shared.buttonTap()
+        typed.cancel()
         speech.stop()
         isTextFieldFocused = false
         returnTask?.cancel()
@@ -694,55 +658,69 @@ struct ChallengeView: View {
 
     @ViewBuilder
     private var returnControl: some View {
-        if let returnDestination {
-            Button {
-                SensoryFeedbackClient.shared.buttonTap()
-                Task { await openReturnDestination(returnDestination) }
-            } label: {
-                HStack(spacing: 9) {
-                    if isReturning {
-                        ProgressView()
-                            .tint(.black)
-                    } else {
-                        Image(systemName: "arrow.up.forward.app.fill")
+        VStack(spacing: 12) {
+            if let returnDestination {
+                Button {
+                    SensoryFeedbackClient.shared.buttonTap()
+                    returnTask?.cancel()
+                    returnTask = Task { await openReturnDestination(returnDestination) }
+                } label: {
+                    HStack(spacing: 9) {
+                        if isReturning {
+                            ProgressView()
+                                .tint(.black)
+                        } else {
+                            Image(systemName: "arrow.up.forward.app.fill")
+                        }
+                        Text(isReturning ? "Returning to \(returnDestination.displayName)…" : "Return to \(returnDestination.displayName)")
                     }
-                    Text(isReturning ? "Returning to \(returnDestination.displayName)…" : "Return to \(returnDestination.displayName)")
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
+                .buttonStyle(PrimaryButtonStyle(color: accent))
+                .disabled(isReturning)
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
-            .buttonStyle(PrimaryButtonStyle(color: accent))
-            .disabled(isReturning)
-            .padding(.horizontal, 24)
-            .padding(.bottom, 8)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
-        } else {
-            VStack(spacing: 8) {
-                Text("Swipe right along the bottom edge to go back.")
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .multilineTextAlignment(.center)
+            if returnDestination == nil || returnFailed {
+                VStack(spacing: 8) {
+                    if returnFailed {
+                        Text("Automatic return didn’t open the app. Switch back manually.")
+                            .font(.callout)
+                            .multilineTextAlignment(.center)
+                    }
+                    Text("Open the app from the App Switcher or Home Screen.")
+                        .font(.callout)
+                        .multilineTextAlignment(.center)
+                    Text("Swipe right along the bottom edge to go back.")
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .multilineTextAlignment(.center)
 
-                HStack(spacing: 8) {
-                    Capsule()
-                        .fill(.white.opacity(0.48))
-                        .frame(width: 112, height: 5)
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 14, weight: .bold))
+                    HStack(spacing: 8) {
+                        Capsule()
+                            .fill(.white.opacity(0.48))
+                            .frame(width: 112, height: 5)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .bold))
+                    }
                 }
+                .foregroundStyle(.white.opacity(0.72))
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 2)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
-            .foregroundStyle(.white.opacity(0.72))
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 20)
-            .padding(.bottom, 2)
-            .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
     }
 
     @MainActor
     private func openReturnDestination(_ destination: ReturnDestination) async {
         isReturning = true
+        returnFailed = false
         defer { isReturning = false }
 
         for url in destination.launchURLs {
+            guard !Task.isCancelled else { return }
             let options: [UIApplication.OpenExternalURLOptionsKey: Any]
             if url.scheme == "https" {
                 options = [.universalLinksOnly: true]
@@ -758,6 +736,8 @@ struct ChallengeView: View {
             }
         }
 
+        guard !Task.isCancelled else { return }
+        returnFailed = true
         OutLoudLog.challenge.error(
             "Could not open automatic return destination: \(destination.displayName, privacy: .public)"
         )

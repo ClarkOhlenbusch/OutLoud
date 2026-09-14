@@ -106,12 +106,28 @@ Read the [privacy policy](docs/privacy.md) or inspect the bundled [privacy manif
 
 ## How it works
 
-1. Choose apps with Apple's Screen Time picker.
+1. Choose individual apps or websites with Apple's Screen Time picker. Expand categories to select their individual items.
 2. OutLoud places a system-managed shield over them.
 3. Tap the shield to open the focused voice pause.
 4. Speak naturally or use a saved phrase.
 5. Continue with a temporary access window, or keep always-on reminders running independently at every 1-, 5-, or 10-minute milestone in each selected app’s cumulative foreground time for the day.
-6. Pause again on the next visit or when the timer ends.
+6. Pause again when the timer ends, or after leaving an app if you have configured Every visit.
+
+Timer mode is the default. Every visit requires creating an **Is Closed / Run Immediately**
+personal automation in Shortcuts and confirming setup in OutLoud. Viewing the instructions
+alone does not enable it. OutLoud cannot verify that the automation runs; a 15-minute
+access timer remains the fallback. Changing the selected apps requires updating and
+confirming the automation again. Individual websites use the 15-minute fallback in
+Every visit mode because Shortcuts cannot observe leaving a website.
+
+An unidentified shield request never unlocks the entire selection. OutLoud explains how
+to retry the request or replace an older category selection with individual items.
+Revoking Screen Time access turns protection off and invalidates the saved selection;
+restore access and choose apps again before enabling protection.
+
+The usage notification's **Lock Selected Apps Now** action ends all current access windows
+and enables protection for the selected items. Tapping a reminder's body opens OutLoud
+without changing protection.
 
 The friendly onboarding includes the reminder choice and lets people finish with reminders only, without enabling Protection.
 

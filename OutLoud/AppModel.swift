@@ -1,3 +1,4 @@
+import Combine
 import DeviceActivity
 import FamilyControls
 import Foundation
@@ -29,6 +30,7 @@ final class AppModel: ObservableObject {
     @Published var errorMessage: String?
     @Published private(set) var challengeErrorMessage: String?
     @Published var demoSelectedApps: Set<String> = ["Instagram", "TikTok"]
+    private var authorizationObservation: AnyCancellable?
     private let demoModeOverride: Bool?
 
     init(demoMode: Bool? = nil) {
@@ -43,7 +45,7 @@ final class AppModel: ObservableObject {
         pendingChallenge = SharedSettings.pendingChallenge
             ?? (SharedSettings.challengeRequested ? .selection : nil)
         challengeSessionID = SharedSettings.challengeRequestID ?? UUID()
-        authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+        authorizationStatus = ScreenTimeAuthorizationClient.current.status()
         onboardingCompleted = SharedSettings.onboardingCompleted
         onboardingStep = OnboardingStep(storedValue: SharedSettings.onboardingStep)
         returnMappings = SharedSettings.returnMappings
@@ -54,13 +56,18 @@ final class AppModel: ObservableObject {
         OutLoudLog.lifecycle.info(
             "Model initialized; onboarding complete: \(self.onboardingCompleted, privacy: .public), protection enabled: \(self.protectionEnabled, privacy: .public), selected count: \(self.selectedItemCount, privacy: .public)"
         )
+        if !isDemoMode {
+            authorizationObservation = ScreenTimeAuthorizationClient.current.observe { [weak self] status in
+                self?.updateAuthorizationStatus(status)
+            }
+        }
         Task { await checkNotificationAuthorization() }
         if acceptsSimilarAcknowledgements {
 #if !targetEnvironment(simulator)
             Task { await FlexibleAcknowledgementMatcher.prepareModel() }
 #endif
         }
-        if usageRemindersEnabled && !isDemoMode {
+        if usageRemindersEnabled && isAuthorized && !isDemoMode {
             do {
                 try UsageReminderManager.ensureMonitoring()
             } catch {
@@ -69,7 +76,7 @@ final class AppModel: ObservableObject {
                 )
             }
         }
-        if !protectionEnabled && onboardingCompleted {
+        if isAuthorized && !protectionEnabled && onboardingCompleted {
             ProtectionReminderManager.ensureRemindersScheduled(from: SharedSettings.protectionDisabledDate)
         }
     }
@@ -85,6 +92,49 @@ final class AppModel: ObservableObject {
 
     var isAuthorized: Bool {
         isDemoMode || authorizationStatus.grantsOutLoudScreenTimeAccess
+    }
+
+    var isProtectionActive: Bool { protectionEnabled && isAuthorized }
+
+    var needsIndividualSelection: Bool { !selection.categoryTokens.isEmpty }
+
+    static let individualSelectionMessage = "Choose individual apps or websites instead of whole categories so each unlock applies to just one item."
+
+    var challengeRecoveryMessage: String? {
+        guard let challenge = pendingChallenge, challenge != .practice else { return nil }
+        if challenge == .selection {
+            return "OutLoud couldn’t identify the app. Return to its shield and tap Unlock App again. Your apps are still protected."
+        }
+        if !challenge.isIndividual || needsIndividualSelection {
+            return Self.individualSelectionMessage + " Return to OutLoud and update Apps. Your apps are still protected."
+        }
+        return nil
+    }
+
+    func updateAuthorizationStatus(_ status: AuthorizationStatus) {
+        authorizationStatus = status
+        guard !isDemoMode else { return }
+        if status.grantsOutLoudScreenTimeAccess, SharedSettings.protectionEnabled {
+            // Authorization can resolve after the first foreground refresh.
+            ShieldManager.applySavedSelection()
+        }
+        guard status == .denied else { return }
+        // Apple invalidates previously issued selection tokens on revocation.
+        protectionEnabled = false
+        SharedSettings.protectionEnabled = false
+        AccessWindowManager.clear()
+        ShieldManager.clear()
+        cancelChallenge()
+        selection = FamilyActivitySelection()
+        SharedSettings.selection = selection
+        returnMappings = []
+        SharedSettings.returnMappings = []
+        turnOffUsageReminders()
+        SharedSettings.usageReminderTargets = []
+        SharedSettings.everyVisitAutomationConfirmed = false
+        askAgainMode = .afterTime
+        SharedSettings.askAgainMode = .afterTime
+        ProtectionReminderManager.cancelReminders()
     }
 
     var phrases: [String] {
@@ -127,13 +177,14 @@ final class AppModel: ObservableObject {
         isRequestingScreenTimeAuthorization = true
         errorMessage = nil
         defer { isRequestingScreenTimeAuthorization = false }
+        if !isDemoMode { updateAuthorizationStatus(ScreenTimeAuthorizationClient.current.status()) }
 
         OutLoudLog.onboarding.info("Requesting Screen Time authorization")
         for attempt in 0...1 {
             do {
                 if !isDemoMode && !isAuthorized {
-                    try await AuthorizationCenter.shared.requestAuthorization(for: .individual)
-                    authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                    try await ScreenTimeAuthorizationClient.current.request()
+                    authorizationStatus = ScreenTimeAuthorizationClient.current.status()
                 }
 
                 guard isAuthorized else {
@@ -150,12 +201,17 @@ final class AppModel: ObservableObject {
                     errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
                     return false
                 }
+                if !isDemoMode { updateAuthorizationStatus(ScreenTimeAuthorizationClient.current.status()) }
+                guard isAuthorized else {
+                    errorMessage = "Screen Time access changed during setup. Restore access and choose your apps again."
+                    return false
+                }
                 OutLoudLog.onboarding.info(
                     "Screen Time authorization finished; approved: true, notifications allowed: true"
                 )
                 return true
             } catch let familyControlsError as FamilyControlsError {
-                authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                authorizationStatus = ScreenTimeAuthorizationClient.current.status()
                 if attempt == 0, familyControlsError.isTransientAuthorizationFailure {
                     OutLoudLog.onboarding.notice(
                         "Retrying transient Screen Time authorization failure: \(familyControlsError.localizedDescription, privacy: .public)"
@@ -169,7 +225,7 @@ final class AppModel: ObservableObject {
                 errorMessage = familyControlsError.outLoudAuthorizationMessage
                 return false
             } catch {
-                authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+                authorizationStatus = ScreenTimeAuthorizationClient.current.status()
                 OutLoudLog.onboarding.error(
                     "Screen Time authorization failed: \(error.localizedDescription, privacy: .public)"
                 )
@@ -186,6 +242,17 @@ final class AppModel: ObservableObject {
                 "Updated simulator selection; selected count: \(self.selectedItemCount, privacy: .public)"
             )
             return
+        }
+        guard !needsIndividualSelection else {
+            selection = SharedSettings.selection
+            errorMessage = Self.individualSelectionMessage
+            return
+        }
+        if selection != SharedSettings.selection && askAgainMode == .everyVisit {
+            // Shortcuts keeps its own app list. Changing ours requires setup again.
+            SharedSettings.everyVisitAutomationConfirmed = false
+            setAskAgainMode(.afterTime)
+            errorMessage = "Your app selection changed. Timer mode is on until you update and confirm the Every visit automation."
         }
         pruneReturnMappings()
         SharedSettings.selection = selection
@@ -260,16 +327,27 @@ final class AppModel: ObservableObject {
             setProtection(true)
             return
         }
-        let notificationsAllowed = await requestFallbackNotificationAuthorization()
-        guard notificationsAllowed else {
-            OutLoudLog.screenTime.error("Protection cannot be enabled because notifications are not authorized")
-            errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
+        guard await requestAuthorization() else { return }
+        guard selectedItemCount > 0 else {
+            errorMessage = "Choose your apps again after restoring Screen Time access."
+            return
+        }
+        guard !needsIndividualSelection else {
+            errorMessage = Self.individualSelectionMessage
             return
         }
         setProtection(true)
     }
 
     func setProtection(_ enabled: Bool) {
+        guard !enabled || isAuthorized else {
+            errorMessage = "Restore Screen Time access before turning on protection."
+            return
+        }
+        guard !enabled || !needsIndividualSelection else {
+            errorMessage = Self.individualSelectionMessage
+            return
+        }
         protectionEnabled = enabled
         OutLoudLog.screenTime.info("Protection changed; enabled: \(enabled, privacy: .public)")
         guard !isDemoMode else {
@@ -281,6 +359,7 @@ final class AppModel: ObservableObject {
             return
         }
         SharedSettings.protectionEnabled = enabled
+        cancelChallenge()
         AccessWindowManager.clear()
         enabled ? ShieldManager.applySavedSelection() : ShieldManager.clear()
         if enabled {
@@ -303,9 +382,21 @@ final class AppModel: ObservableObject {
         OutLoudLog.screenTime.debug("Access window changed; seconds: \(seconds, privacy: .public)")
     }
 
+    func confirmEveryVisitAutomation() {
+        SharedSettings.everyVisitAutomationConfirmed = true
+        setAskAgainMode(.everyVisit)
+    }
+
     func setAskAgainMode(_ mode: AskAgainMode) {
+        let mode: AskAgainMode = mode == .everyVisit && !SharedSettings.everyVisitAutomationConfirmed
+            ? .afterTime : mode
         askAgainMode = mode
         SharedSettings.askAgainMode = mode
+        // A mode change should not leave a window with the previous timing rules.
+        if !isDemoMode {
+            AccessWindowManager.clear()
+            ShieldManager.applySavedSelection()
+        }
         OutLoudLog.screenTime.info("Ask-again mode changed: \(mode.rawValue, privacy: .public)")
     }
 
@@ -366,13 +457,15 @@ final class AppModel: ObservableObject {
 
         // Permissions may have changed since the first setup page, including
         // when resuming a previously unfinished onboarding session.
-        if enableProtection && !isDemoMode {
-            guard await requestFallbackNotificationAuthorization() else {
-                errorMessage = "Notifications are required to unlock your apps. Please allow notifications for OutLoud in Settings."
+        if enableProtection {
+            guard await requestAuthorization() else { return }
+            guard selectedItemCount > 0, !needsIndividualSelection else {
+                errorMessage = Self.individualSelectionMessage
                 return
             }
         }
         savePhrase()
+        SharedSettings.askAgainMode = askAgainMode
         onboardingCompleted = true
         onboardingStep = .welcome
         SharedSettings.onboardingCompleted = true
@@ -384,12 +477,16 @@ final class AppModel: ObservableObject {
     }
 
     func refreshPendingChallenge() {
-        authorizationStatus = AuthorizationCenter.shared.authorizationStatus
+        updateAuthorizationStatus(ScreenTimeAuthorizationClient.current.status())
+        if !isDemoMode {
+            protectionEnabled = SharedSettings.protectionEnabled
+            if isAuthorized { ShieldManager.applySavedSelection() }
+        }
         Task { await checkNotificationAuthorization() }
-        if usageRemindersEnabled && !isDemoMode {
+        if usageRemindersEnabled && isAuthorized && !isDemoMode {
             try? UsageReminderManager.ensureMonitoring()
         }
-        if !protectionEnabled && onboardingCompleted {
+        if isAuthorized && !protectionEnabled && onboardingCompleted {
             ProtectionReminderManager.ensureRemindersScheduled(from: SharedSettings.protectionDisabledDate)
         } else if protectionEnabled {
             ProtectionReminderManager.cancelReminders()
@@ -408,8 +505,7 @@ final class AppModel: ObservableObject {
                 "Restored pending challenge; kind: \(pending.logName, privacy: .public)"
             )
         } else if SharedSettings.challengeRequested {
-            // Fall back to releasing the complete saved selection when the
-            // originating Screen Time token could not be restored.
+            // Preserve an unresolved handoff for recovery UI, never a broad unlock.
             let requestID = SharedSettings.challengeRequestID ?? UUID()
             if challengeSessionID != requestID { challengeErrorMessage = nil }
             challengeSessionID = requestID
@@ -422,6 +518,14 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func refreshAfterProtectionAction(error: String?) {
+        // Lock actions cancel the shared handoff. Remove this process's completed
+        // challenge screen ("Unlocked") and show any permission error on Home.
+        dismissChallenge()
+        refreshPendingChallenge()
+        errorMessage = error
+    }
+
     func beginPractice() {
         challengeErrorMessage = nil
         savePhrase()
@@ -431,8 +535,9 @@ final class AppModel: ObservableObject {
         OutLoudLog.challenge.info("Practice challenge started")
     }
 
-    func completeChallenge() -> Bool {
-        guard let challenge = pendingChallenge else { return false }
+    func completeChallenge(expectedSessionID: UUID? = nil) -> Bool {
+        guard expectedSessionID == nil || expectedSessionID == challengeSessionID,
+              let challenge = pendingChallenge else { return false }
         challengeErrorMessage = nil
         OutLoudLog.challenge.info(
             "Completing challenge; kind: \(challenge.logName, privacy: .public)"
@@ -442,6 +547,22 @@ final class AppModel: ObservableObject {
             SharedSettings.pendingChallenge = nil
             OutLoudLog.challenge.info("Practice challenge completed")
             return true
+        }
+
+        guard isDemoMode || ScreenTimeAuthorizationClient.current.status().grantsOutLoudScreenTimeAccess else {
+            challengeErrorMessage = "Screen Time access is required. Close this pause and restore access in OutLoud."
+            return false
+        }
+        guard challenge.isIndividual else {
+            challengeErrorMessage = challenge == .selection
+                ? "OutLoud couldn’t identify the app. Close this pause and tap Unlock App on its shield again."
+                : Self.individualSelectionMessage + " Close this pause and update Apps in OutLoud."
+            ShieldManager.applySavedSelection()
+            return false
+        }
+        guard SharedSettings.selection.categoryTokens.isEmpty else {
+            challengeErrorMessage = Self.individualSelectionMessage
+            return false
         }
 
         let calendar = Calendar.current

@@ -29,7 +29,15 @@ private struct RootView: View {
 
     var body: some View {
         Group {
-            if model.pendingChallenge != nil {
+            if let message = model.challengeRecoveryMessage {
+                VStack(spacing: 24) {
+                    Text("App selection needed").font(.title.bold())
+                    Text(message).multilineTextAlignment(.center)
+                    Button("Back to OutLoud") { model.cancelChallenge() }
+                        .buttonStyle(.borderedProminent)
+                }
+                .padding(24)
+            } else if model.pendingChallenge != nil {
                 ChallengeView()
                     .id(model.challengeSessionID)
             } else if !model.onboardingCompleted {
@@ -52,9 +60,8 @@ private struct RootView: View {
             OutLoudLog.challenge.debug("Challenge notification received by root view")
             model.refreshPendingChallenge()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .outLoudProtectionReenabled)) { _ in
-            OutLoudLog.screenTime.info("Protection re-enabled notification received by root view")
-            model.protectionEnabled = true
+        .onReceive(NotificationCenter.default.publisher(for: .outLoudProtectionReenabled)) { notification in
+            model.refreshAfterProtectionAction(error: notification.userInfo?["error"] as? String)
         }
     }
 }
@@ -74,8 +81,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
     private func registerNotificationCategories(center: UNUserNotificationCenter) {
         let lockAction = UNNotificationAction(
             identifier: UsageReminderNotification.lockActionIdentifier,
-            title: "Lock App Now",
-            options: [.destructive]
+            title: "Lock Selected Apps Now",
+            options: [.destructive, .foreground]
         )
         let usageCategory = UNNotificationCategory(
             identifier: UsageReminderNotification.categoryIdentifier,
@@ -109,42 +116,33 @@ final class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCent
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        defer { completionHandler() }
         let identifier = response.notification.request.identifier
-
-        if identifier == UsageReminderNotification.identifier {
-            OutLoudLog.screenTime.info(
-                "User engaged usage reminder; action: \(response.actionIdentifier, privacy: .public)"
-            )
-            ShieldManager.rearmProtection()
-            AccessWindowManager.expire()
-            DispatchQueue.main.async {
-                SensoryFeedbackClient.shared.lockToggle(isOn: true)
-            }
-            return
+        Task { @MainActor in
+            defer { completionHandler() }
+            await Self.performNotificationAction(identifier: identifier, actionIdentifier: response.actionIdentifier)
         }
+    }
 
-        if ProtectionReminderNotification.isProtectionReminder(identifier) {
-            OutLoudLog.screenTime.info(
-                "User engaged protection reminder; action: \(response.actionIdentifier, privacy: .public)"
-            )
-            SharedSettings.protectionEnabled = true
-            SharedSettings.protectionDisabledDate = nil
-            ShieldManager.applySavedSelection()
-            ProtectionReminderManager.cancelReminders()
-            DispatchQueue.main.async {
-                NotificationCenter.default.post(name: .outLoudProtectionReenabled, object: nil)
-                SensoryFeedbackClient.shared.lockToggle(isOn: true)
-            }
-            return
-        }
-
-        guard identifier == "outloud.pending-challenge" else { return }
-
-        OutLoudLog.challenge.info("User opened challenge notification")
-        DispatchQueue.main.async {
+    @MainActor
+    static func performNotificationAction(identifier: String, actionIdentifier: String) async {
+        let lockRequested = identifier == UsageReminderNotification.identifier
+            && actionIdentifier == UsageReminderNotification.lockActionIdentifier
+        let enableRequested = ProtectionReminderNotification.isProtectionReminder(identifier)
+            && actionIdentifier == ProtectionReminderNotification.reenableActionIdentifier
+        if lockRequested || enableRequested {
+            // This explicit action locks every selected item, in either timing
+            // mode, including when protection was off. Recheck both permissions.
+            let model = AppModel(demoMode: false)
+            model.cancelChallenge()
+            await model.enableProtectionWithAuthorizationCheck()
+            NotificationCenter.default.post(name: .outLoudProtectionReenabled, object: nil,
+                                            userInfo: model.errorMessage.map { ["error": $0] })
+            if model.errorMessage == nil { SensoryFeedbackClient.shared.lockToggle(isOn: true) }
+        } else if identifier == "outloud.pending-challenge",
+                  actionIdentifier == UNNotificationDefaultActionIdentifier {
             NotificationCenter.default.post(name: .outLoudChallengeRequested, object: nil)
         }
+        // Opening a reminder's body navigates to OutLoud without changing locks.
     }
 }
 

@@ -129,8 +129,9 @@ final class OnboardingStepTests: ScreenTimeFlowTestCase {
     }
 
     @MainActor
-    func testFailedUnlockPreservesChallengeAndCanRetry() {
-        SharedSettings.pendingChallenge = .selection
+    func testFailedUnlockPreservesChallengeAndCanRetry() throws {
+        let challenge = PendingChallenge.application(try token(1))
+        SharedSettings.pendingChallenge = challenge
         let model = AppModel()
         let requestID = model.challengeSessionID
         system.failuresRemaining = 1
@@ -138,8 +139,8 @@ final class OnboardingStepTests: ScreenTimeFlowTestCase {
         XCTAssertFalse(failed)
         XCTAssertNotNil(model.challengeErrorMessage)
         XCTAssertNil(model.errorMessage)
-        XCTAssertEqual(model.pendingChallenge, .selection)
-        XCTAssertEqual(SharedSettings.pendingChallenge, .selection)
+        XCTAssertEqual(model.pendingChallenge, challenge)
+        XCTAssertEqual(SharedSettings.pendingChallenge, challenge)
         XCTAssertNil(SharedSettings.unlockExpiration)
 
         // Returning to OutLoud must keep the same failed challenge and retry UI.

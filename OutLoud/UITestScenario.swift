@@ -1,4 +1,5 @@
 #if DEBUG && targetEnvironment(simulator)
+import Combine
 import DeviceActivity
 import FamilyControls
 import Foundation
@@ -16,6 +17,12 @@ enum UITestScenario {
         guard scenario != nil else { return nil }
         // Exercise the bundled model through the production asynchronous path.
         if scenario?.hasPrefix("real-own-words") == true { return nil }
+        if scenario == "typed-delayed" {
+            return { _ in
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
+                return .accepted
+            }
+        }
         if scenario == "speech-rejection-fallback" { return { _ in .rejected } }
         return { $0 == "I am making a bad choice" ? .accepted : .rejected }
     }
@@ -32,6 +39,12 @@ enum UITestScenario {
             var selection = FamilyActivitySelection()
             selection.applicationTokens = [a, b]
             SharedSettings.selection = selection
+            if scenario == "typed-delayed" {
+                SharedSettings.challengeMode = .either
+            }
+            if scenario == "typed-unlock" {
+                SharedSettings.challengeMode = .type
+            }
             SharedSettings.acceptsSimilarAcknowledgements = true
             if scenario == "speech-interruption" || scenario == "speech-interruption-repeated" {
                 SharedSettings.acceptsSimilarAcknowledgements = false
@@ -51,13 +64,15 @@ enum UITestScenario {
                     monitors[name] = events
                 }, stop: { names in names.forEach { monitors.removeValue(forKey: $0) } },
                 applyShields: { _ in }, clearShields: {})
+            ScreenTimeAuthorizationClient.current = ScreenTimeAuthorizationClient(
+                status: { .approved }, request: {}, observe: { _ in AnyCancellable {} })
             ReturnLinkClient.open = { _, _ in false }
             NotificationPermissionClient.request = { true }
             if scenario == "automatic-return" {
                 SharedSettings.returnMappings = [ApplicationReturnMapping(applicationToken: a, destination: .youTube)]
             }
             if scenario != "onboarding" && scenario != "mappings" {
-                SharedSettings.pendingChallenge = .application(a)
+                SharedSettings.pendingChallenge = scenario == "unresolved-challenge" ? .selection : .application(a)
             }
             return AppModel(demoMode: false)
         } catch {
@@ -82,6 +97,7 @@ private final class ScriptedSpeechCapture: SpeechCapture {
     func requestPermissions(_ completion: @escaping (Bool) -> Void) { completion(true) }
     func start(phrases: [String], receive: @escaping (SpeechCaptureEvent) -> Void) throws {
         attempts += 1
+        if UITestScenario.scenario == "typed-delayed" { return }
         if let scenario = UITestScenario.scenario, scenario.hasPrefix("real-own-words") {
             let acceptedText = ProcessInfo.processInfo.environment["OUTLOUD_UI_TEST_TRANSCRIPT"] ?? "This is a bad choice."
             let text = (scenario == "real-own-words-retry" && attempts <= 2)

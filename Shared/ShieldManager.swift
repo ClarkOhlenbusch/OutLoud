@@ -15,12 +15,9 @@ enum ShieldManager {
         for window in SharedSettings.accessWindows where window.expiration > ScreenTimeClient.current.now() {
             switch window.challenge {
             case .application(let token): selection.applicationTokens.remove(token)
-            case .category(let token): selection.categoryTokens.remove(token)
             case .webDomain(let token): selection.webDomainTokens.remove(token)
-            case .selection:
-                clear()
-                return
-            case .practice: break
+            // Older builds could save broad access windows. Never honor them.
+            case .category, .selection, .practice: break
             }
         }
         apply(selection)

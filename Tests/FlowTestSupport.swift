@@ -1,3 +1,4 @@
+import Combine
 import DeviceActivity
 import FamilyControls
 import Foundation
@@ -45,6 +46,8 @@ class ScreenTimeFlowTestCase: XCTestCase {
         SharedSettings.acceptsSimilarAcknowledgements = false
         system = FakeScreenTime()
         ScreenTimeClient.current = system.client
+        ScreenTimeAuthorizationClient.current = ScreenTimeAuthorizationClient(
+            status: { .approved }, request: {}, observe: { _ in AnyCancellable {} })
         NotificationPermissionClient.request = { false }
         NotificationPermissionClient.check = { true }
     }
@@ -53,6 +56,7 @@ class ScreenTimeFlowTestCase: XCTestCase {
         SharedSettings.testStorage?.defaults.removePersistentDomain(forName: suiteName)
         SharedSettings.testStorage = nil
         ScreenTimeClient.current = .live
+        ScreenTimeAuthorizationClient.current = .live
         NotificationPermissionClient.request = NotificationPermissionClient.live
         NotificationPermissionClient.check = NotificationPermissionClient.liveCheck
         NotificationPermissionClient.requiresFallback = NotificationPermissionClient.liveRequiresFallback

@@ -237,6 +237,7 @@ final class AccessFlowTests: ScreenTimeFlowTestCase {
         ShieldManager.rearmProtection()
         XCTAssertTrue(system.shields.applicationTokens.isEmpty)
         XCTAssertEqual(SharedSettings.accessWindows.count, 1)
+        SharedSettings.everyVisitAutomationConfirmed = true
         SharedSettings.askAgainMode = .everyVisit
         ShieldManager.rearmProtection()
         XCTAssertEqual(system.shields.applicationTokens, [a])

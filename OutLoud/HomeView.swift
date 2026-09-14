@@ -49,6 +49,30 @@ struct HomeView: View {
                         if model.usageRemindersEnabled && !model.isNotificationAuthorized {
                             notificationDisabledBanner
                         }
+                        if !model.isAuthorized {
+                            VStack(spacing: 12) {
+                                Text("Screen Time access is needed to protect your apps. Restore access, then choose your apps again.")
+                                    .multilineTextAlignment(.center)
+                                Button("Restore Screen Time access") {
+                                    Task { _ = await model.requestAuthorization() }
+                                }
+                                .disabled(model.isRequestingScreenTimeAuthorization)
+                            }
+                        }
+                        if SharedSettings.needsEveryVisitSetup {
+                            VStack(spacing: 12) {
+                                Text("Timer mode is active until you confirm your Every visit automation.")
+                                    .multilineTextAlignment(.center)
+                                Button("Set up Every visit") { showingAskAgainSetup = true }
+                            }
+                        }
+                        if model.needsIndividualSelection {
+                            VStack(spacing: 12) {
+                                Text(AppModel.individualSelectionMessage)
+                                    .multilineTextAlignment(.center)
+                                Button("Choose individual apps") { showingPicker = true }
+                            }
+                        }
                         protectionStatus
                         settings
                         practiceButton
@@ -158,13 +182,13 @@ struct HomeView: View {
                 Circle()
                     .stroke(statusColor.opacity(0.28), lineWidth: 1)
                     .frame(width: 110, height: 110)
-                Image(systemName: model.protectionEnabled ? "lock.fill" : "lock.open.fill")
+                Image(systemName: model.isProtectionActive ? "lock.fill" : "lock.open.fill")
                     .font(.system(size: 38, weight: .semibold))
                     .foregroundStyle(statusColor)
             }
 
             VStack(spacing: 5) {
-                Text(model.protectionEnabled ? "Protection is on" : "Protection is off")
+                Text(model.isProtectionActive ? "Protection is on" : "Protection is off")
                     .font(.system(size: 25, weight: .bold, design: .rounded))
                 Text(statusDetail)
                     .font(.subheadline)
@@ -295,12 +319,17 @@ struct HomeView: View {
     }
 
     private var statusColor: Color {
-        model.protectionEnabled ? outLoudAccent : .white.opacity(0.45)
+        model.isProtectionActive ? outLoudAccent : .white.opacity(0.45)
     }
 
     private var statusDetail: String {
         guard model.selectedItemCount > 0 else { return "Choose at least one app" }
-        return "\(model.selectedItemCount) app\(model.selectedItemCount == 1 ? "" : "s") will pause before opening"
+        guard model.isAuthorized else { return "Restore Screen Time access" }
+        guard model.isProtectionActive else { return "Your selected apps are not protected" }
+        if model.askAgainMode == .everyVisit {
+            return "Re-locks through your Shortcuts automation. If it doesn’t run, access ends after 15 minutes."
+        }
+        return "Each app re-locks after its \(accessWindowTitle(for: model.gracePeriod)) access window."
     }
 
     private var selectionSummary: String {
@@ -348,7 +377,6 @@ struct OnboardingView: View {
     @State private var showingDemoPicker = false
     @State private var showingRearmSetup = false
     @State private var showingReturnSetup = false
-    @State private var viewedRearmSetup = false
     @State private var onboardingReminderInterval: UsageReminderInterval = .fiveMinutes
     @State private var isEnablingUsageReminders = false
     @FocusState private var phraseIsFocused: Bool
@@ -371,10 +399,9 @@ struct OnboardingView: View {
         .sheet(isPresented: $showingDemoPicker) {
             DemoAppPicker(selectedApps: $model.demoSelectedApps)
         }
-        .sheet(isPresented: $showingRearmSetup, onDismiss: {
-            viewedRearmSetup = true
-        }) {
+        .sheet(isPresented: $showingRearmSetup) {
             RearmAutomationSetupView()
+                .environmentObject(model)
         }
         .sheet(isPresented: $showingReturnSetup) {
             AutoReturnSetupView {
@@ -494,7 +521,7 @@ struct OnboardingView: View {
         OnboardingPage(
             icon: "app.badge.checkmark",
             title: "Choose your apps",
-            message: "Pick apps individually so OutLoud can return to the right one."
+            message: "Expand categories and pick individual apps or websites. Each challenge unlocks just one item."
         ) {
             VStack(spacing: 12) {
                 Button {
@@ -619,10 +646,10 @@ struct OnboardingView: View {
                 AskAgainOption(
                     icon: "arrow.clockwise",
                     title: "Every visit",
-                    detail: "Ask again after you leave the app.",
+                    detail: "Requires a Shortcuts automation.",
                     selected: model.askAgainMode == .everyVisit
                 ) {
-                    model.setAskAgainMode(.everyVisit)
+                    showingRearmSetup = true
                 }
 
                 AskAgainOption(
@@ -640,40 +667,22 @@ struct OnboardingView: View {
                         set: { model.setGracePeriod($0) }
                     ))
                     .transition(.opacity.combined(with: .move(edge: .top)))
-                } else if viewedRearmSetup {
-                    statusPill("Automation steps viewed", icon: "checkmark")
+                } else {
+                    Text("Uses your Shortcuts automation, with a 15-minute timer if it doesn’t run.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: model.askAgainMode)
         } action: {
             VStack(spacing: 10) {
-                primaryButton(onboardingTimingButtonTitle) {
-                    if model.askAgainMode == .afterTime || viewedRearmSetup {
-                        move(to: .usageReminders)
-                    } else {
-                        showingRearmSetup = true
-                    }
-                }
-
+                primaryButton("Continue") { move(to: .usageReminders) }
                 if model.askAgainMode == .everyVisit {
-                    Button(viewedRearmSetup ? "View steps again" : "Set up later") {
-                        if viewedRearmSetup {
-                            showingRearmSetup = true
-                        } else {
-                            move(to: .usageReminders)
-                        }
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.58))
-                    .frame(height: 40)
+                    Button("Review automation") { showingRearmSetup = true }
+                        .font(.subheadline.weight(.semibold))
                 }
             }
         }
-    }
-
-    private var onboardingTimingButtonTitle: String {
-        if model.askAgainMode == .afterTime || viewedRearmSetup { return "Continue" }
-        return "Set up every visit"
     }
 
     private var usageRemindersPage: some View {
@@ -1473,10 +1482,10 @@ struct AskAgainSetupView: View {
                             AskAgainOption(
                                 icon: "arrow.clockwise",
                                 title: "Every visit",
-                                detail: "Lock again when you leave the app.",
+                                detail: "Requires a Shortcuts automation.",
                                 selected: model.askAgainMode == .everyVisit
                             ) {
-                                model.setAskAgainMode(.everyVisit)
+                                showingRearmSetup = true
                             }
 
                             AskAgainOption(
@@ -1507,7 +1516,7 @@ struct AskAgainSetupView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         } else {
                             VStack(alignment: .leading, spacing: 14) {
-                                Text("Every visit uses a personal automation in Shortcuts to lock protected apps again when you leave them.")
+                                Text("Every visit uses your Shortcuts automation to re-lock apps when you leave. OutLoud cannot verify that it runs. If it doesn’t run, access ends after 15 minutes.")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -1538,6 +1547,7 @@ struct AskAgainSetupView: View {
             }
             .sheet(isPresented: $showingRearmSetup) {
                 RearmAutomationSetupView()
+                    .environmentObject(model)
             }
         }
         .preferredColorScheme(.dark)
@@ -1545,6 +1555,7 @@ struct AskAgainSetupView: View {
 }
 
 struct RearmAutomationSetupView: View {
+    @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
 
@@ -1557,6 +1568,14 @@ struct RearmAutomationSetupView: View {
                     VStack(alignment: .leading, spacing: 22) {
                         Text("In Shortcuts")
                             .font(.system(size: 30, weight: .bold, design: .rounded))
+
+                        Text("Create an automation for every protected app. OutLoud can’t verify it; a 15-minute timer is the fallback if it doesn’t run.")
+                            .foregroundStyle(.secondary)
+
+                        if !model.selection.webDomainTokens.isEmpty {
+                            Text("Individual websites use the 15-minute fallback. Shortcuts only detects leaving apps.")
+                                .foregroundStyle(.secondary)
+                        }
 
                         VStack(alignment: .leading, spacing: 18) {
                             setupStep(1, "Tap Automation in the bottom tab bar.")
@@ -1575,6 +1594,19 @@ struct RearmAutomationSetupView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(PrimaryButtonStyle(color: outLoudAccent))
+
+                        Button("I created the automation") {
+                            model.confirmEveryVisitAutomation()
+                            dismiss()
+                        }
+                        .buttonStyle(PrimaryButtonStyle(color: outLoudAccent))
+                        .accessibilityIdentifier("confirm-every-visit")
+
+                        Button("Use a timer instead") {
+                            model.setAskAgainMode(.afterTime)
+                            dismiss()
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                     .padding(20)
                     .padding(.bottom, 24)
